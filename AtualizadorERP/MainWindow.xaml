@@ -1,0 +1,856 @@
+<Window x:Class="AtualizadorERP.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Atualizador de Sistemas - RP Info" 
+        Icon="app.ico"
+        WindowState="Maximized"
+        Height="780" Width="1020"
+        MinHeight="700" MinWidth="940"
+        WindowStartupLocation="CenterScreen"
+        Background="#0B0F17"
+        Foreground="#F8FAFC"
+        FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <!-- Estilo Global de ScrollBar Escuro -->
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Width" Value="7"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid Background="Transparent">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.Thumb>
+                                    <Thumb>
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border Background="#334155" CornerRadius="3" Margin="1,0"/>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Estilo do Container da Lista da Barra Lateral (Nunca fica branco) -->
+        <Style x:Key="SidebarListBoxStyle" TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBox">
+                        <Border Background="Transparent" BorderThickness="0">
+                            <ScrollViewer Focusable="False" Padding="{TemplateBinding Padding}">
+                                <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                            </ScrollViewer>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Estilo dos Itens da Barra Lateral: Ícones Brancos por padrão, Azuis quando selecionados -->
+        <Style x:Key="SidebarAppItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="34"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Card do Ícone: Fundo escuro e ícone BRANCO por padrão, AZUL quando selecionado -->
+                                <Border x:Name="IconBadge" Grid.Column="0" Width="30" Height="30" CornerRadius="7" 
+                                        Background="#111A2C" BorderBrush="#22304A" BorderThickness="1.2" 
+                                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock x:Name="TxtIcon" Text="{Binding IconGlyph}" FontSize="15" 
+                                               Foreground="#FFFFFF" FontFamily="Segoe UI Emoji, Segoe UI Symbol, Segoe UI"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="6,0,0,0">
+                                    <TextBlock x:Name="TxtName" Text="{Binding Name}" FontSize="12.5" FontWeight="Bold" Foreground="#F8FAFC"/>
+                                    <TextBlock x:Name="TxtStatus" Text="{Binding StatusSummary}" FontSize="10.5" Foreground="#94A3B8" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#1E293B"/>
+                                <Setter TargetName="IconBadge" Property="BorderBrush" Value="#38BDF8"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#172554"/>
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#0284C7"/>
+                                <Setter TargetName="ItemBorder" Property="BorderThickness" Value="1"/>
+                                <Setter TargetName="IconBadge" Property="Background" Value="#0C2542"/>
+                                <Setter TargetName="IconBadge" Property="BorderBrush" Value="#38BDF8"/>
+                                <Setter TargetName="TxtIcon" Property="Foreground" Value="#38BDF8"/>
+                                <Setter TargetName="TxtName" Property="Foreground" Value="#38BDF8"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.75"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Estilo dos Cards de Seleção de Versão do ERP -->
+        <Style x:Key="VersionCardStyle" TargetType="RadioButton">
+            <Setter Property="Background" Value="#131B2E"/>
+            <Setter Property="BorderBrush" Value="#22304A"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="MinHeight" Value="96"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="CardBorder" 
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10"
+                                Padding="14,10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Indicador Circular do Radio -->
+                                <Border x:Name="RadioOuter" Grid.Column="0" Width="18" Height="18" CornerRadius="9"
+                                        BorderBrush="#334155" BorderThickness="2" Background="#0F172A"
+                                        Margin="0,0,12,0" VerticalAlignment="Center">
+                                    <Ellipse x:Name="RadioInner" Width="8" Height="8" Fill="#38BDF8" Visibility="Collapsed"/>
+                                </Border>
+
+                                <ContentPresenter Grid.Column="1" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CardBorder" Property="BorderBrush" Value="#38BDF8"/>
+                                <Setter TargetName="CardBorder" Property="Background" Value="#1A253E"/>
+                                <Setter TargetName="RadioOuter" Property="BorderBrush" Value="#38BDF8"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CardBorder" Property="BorderBrush" Value="#0284C7"/>
+                                <Setter TargetName="CardBorder" Property="Background" Value="#0F2542"/>
+                                <Setter TargetName="CardBorder" Property="BorderThickness" Value="2"/>
+                                <Setter TargetName="RadioOuter" Property="BorderBrush" Value="#0284C7"/>
+                                <Setter TargetName="RadioOuter" Property="Background" Value="#0369A1"/>
+                                <Setter TargetName="RadioInner" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="CardBorder" Property="Opacity" Value="0.6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Estilos Completos do ComboBox Escuro (Sem fundo branco no popup) -->
+        <Style x:Key="DarkComboBoxToggleStyle" TargetType="ToggleButton">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="ClickMode" Value="Press"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="TemplateRoot" 
+                                Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                CornerRadius="6">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="26"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="1" Background="Transparent">
+                                    <Path x:Name="Arrow" Data="M 0 0 L 4 4 L 8 0 Z" Fill="#94A3B8" 
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TemplateRoot" Property="BorderBrush" Value="#38BDF8"/>
+                                <Setter TargetName="Arrow" Property="Fill" Value="#38BDF8"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DarkComboBoxItemStyle" TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#0F172A"/>
+            <Setter Property="Foreground" Value="#F8FAFC"/>
+            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" CornerRadius="4" 
+                                Padding="{TemplateBinding Padding}" Margin="1">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#1E293B"/>
+                                <Setter Property="Foreground" Value="#38BDF8"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#172554"/>
+                                <Setter Property="Foreground" Value="#38BDF8"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DarkComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Background" Value="#131B2E"/>
+            <Setter Property="Foreground" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#334155"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="ItemContainerStyle" Value="{StaticResource DarkComboBoxItemStyle}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid x:Name="MainGrid">
+                            <ToggleButton x:Name="ToggleButton" 
+                                          Style="{StaticResource DarkComboBoxToggleStyle}" 
+                                          Background="{TemplateBinding Background}" 
+                                          BorderBrush="{TemplateBinding BorderBrush}" 
+                                          BorderThickness="{TemplateBinding BorderThickness}" 
+                                          IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"/>
+                            
+                            <ContentPresenter x:Name="ContentSite" 
+                                              IsHitTestVisible="False" 
+                                              Content="{TemplateBinding SelectionBoxItem}" 
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" 
+                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" 
+                                              Margin="10,3,26,3" 
+                                              VerticalAlignment="Center" 
+                                              HorizontalAlignment="Left"/>
+
+                            <Popup x:Name="PART_Popup" 
+                                   AllowsTransparency="True" 
+                                   IsOpen="{Binding Path=IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}" 
+                                   Placement="Bottom" 
+                                   PopupAnimation="Slide">
+                                <Border x:Name="DropDownBorder" 
+                                        MinWidth="{Binding ActualWidth, ElementName=MainGrid}" 
+                                        MaxHeight="220" 
+                                        Background="#0F172A" 
+                                        BorderBrush="#334155" 
+                                        BorderThickness="1" 
+                                        CornerRadius="6" 
+                                        Margin="0,2,0,0" 
+                                        Padding="3">
+                                    <ScrollViewer SnapsToDevicePixels="True" VerticalScrollBarVisibility="Auto">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="HasItems" Value="False">
+                                <Setter TargetName="DropDownBorder" Property="MinHeight" Value="40"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="MainGrid" Property="Opacity" Value="0.6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Barra de Progresso Suave -->
+        <Style x:Key="ModernProgressBarStyle" TargetType="ProgressBar">
+            <Setter Property="Background" Value="#1E293B"/>
+            <Setter Property="Foreground">
+                <Setter.Value>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Color="#0284C7" Offset="0.0"/>
+                        <GradientStop Color="#38BDF8" Offset="0.7"/>
+                        <GradientStop Color="#34D399" Offset="1.0"/>
+                    </LinearGradientBrush>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}" CornerRadius="5"/>
+                            <Border x:Name="PART_Indicator" 
+                                    Background="{TemplateBinding Foreground}" 
+                                    CornerRadius="5" 
+                                    HorizontalAlignment="Left"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Botão Primário Moderno -->
+        <Style x:Key="PrimaryActionBtnStyle" TargetType="Button">
+            <Setter Property="Background">
+                <Setter.Value>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#2563EB" Offset="0.0"/>
+                        <GradientStop Color="#0284C7" Offset="1.0"/>
+                    </LinearGradientBrush>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="Padding" Value="22,10"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="BtnBorder" 
+                                Background="{TemplateBinding Background}" 
+                                CornerRadius="8" 
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="BtnBorder" Property="Background">
+                                    <Setter.Value>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#1D4ED8" Offset="0.0"/>
+                                            <GradientStop Color="#0369A1" Offset="1.0"/>
+                                        </LinearGradientBrush>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="BtnBorder" Property="Background" Value="#334155"/>
+                                <Setter Property="Foreground" Value="#64748B"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Botão Secundário -->
+        <Style x:Key="SecondaryBtnStyle" TargetType="Button">
+            <Setter Property="Background" Value="#1E293B"/>
+            <Setter Property="Foreground" Value="#CBD5E1"/>
+            <Setter Property="BorderBrush" Value="#334155"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="SecBorder" 
+                                Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                CornerRadius="6" 
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="SecBorder" Property="Background" Value="#334155"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="250"/> <!-- Sidebar Lateral -->
+            <ColumnDefinition Width="*"/>   <!-- Painel Principal -->
+        </Grid.ColumnDefinitions>
+
+        <!-- ============================================================== -->
+        <!-- BARRA LATERAL (LISTA DE APLICAÇÕES)                             -->
+        <!-- ============================================================== -->
+        <Border Grid.Column="0" Background="#0A0E18" BorderBrush="#1E293B" BorderThickness="0,0,1,0" Padding="14,16">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/> <!-- Header Logo -->
+                    <RowDefinition Height="Auto"/> <!-- Botão Consultar FTP -->
+                    <RowDefinition Height="*"/>    <!-- Lista de Apps -->
+                    <RowDefinition Height="Auto"/> <!-- Rodapé Sidebar -->
+                </Grid.RowDefinitions>
+
+                <!-- Cabeçalho Sidebar -->
+                <Grid Grid.Row="0" Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Image Grid.Column="0" Source="erp_logo.png" Width="36" Height="36" Margin="0,0,10,0"/>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="ATUALIZADOR" FontSize="14" FontWeight="Bold" Foreground="#F8FAFC"/>
+                        <TextBlock Text="RP Info" FontSize="11" Foreground="#38BDF8" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Botão de Sincronizar Versões do FTP -->
+                <Border Grid.Row="1" Background="#111827" CornerRadius="8" Padding="6" Margin="0,0,0,12" BorderBrush="#1F2937" BorderThickness="1">
+                    <Button x:Name="BtnRefreshFtp" Style="{StaticResource SecondaryBtnStyle}" Background="Transparent" BorderThickness="0" 
+                            HorizontalContentAlignment="Center" Click="BtnRefreshFtp_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔄" Margin="0,0,6,0" FontSize="12"/>
+                            <TextBlock x:Name="TxtRefreshBtn" Text="Consultar Versões no FTP" FontSize="11" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Button>
+                </Border>
+
+                <!-- Lista de Sistemas -->
+                <ListBox Grid.Row="2" x:Name="LbApps" Style="{StaticResource SidebarListBoxStyle}"
+                         ItemContainerStyle="{StaticResource SidebarAppItemStyle}"
+                         SelectionChanged="LbApps_SelectionChanged"/>
+
+                <!-- Rodapé da Barra Lateral -->
+                <StackPanel Grid.Row="3" Margin="0,10,0,0">
+                    <Button x:Name="BtnSidebarSettings" Content="⚙ Configurações Gerais" Style="{StaticResource SecondaryBtnStyle}" 
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="BtnOpenSettings_Click"/>
+
+                    <Border Margin="0,8,0,0" Background="#111827" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="6" Padding="8,6">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock x:Name="TxtAppVersionSidebar" Text="v1.0.0" FontSize="11" FontWeight="Bold" Foreground="#94A3B8"/>
+                                <TextBlock Text="GitHub Updater" FontSize="9.5" Foreground="#64748B"/>
+                            </StackPanel>
+                            <Button x:Name="BtnCheckAppUpdateManual" Grid.Column="1" Content="🔍 Buscar Att" 
+                                    Style="{StaticResource SecondaryBtnStyle}" FontSize="10" Padding="8,3" 
+                                    Click="BtnCheckAppUpdateManual_Click" ToolTip="Verificar novas atualizações no GitHub"/>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ============================================================== -->
+        <!-- PAINEL PRINCIPAL (DETALHES DA APLICAÇÃO SELECIONADA)           -->
+        <!-- ============================================================== -->
+        <Grid Grid.Column="1" Margin="20,16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/> <!-- 0. Banner de Atualização do Aplicativo (GitHub) -->
+                <RowDefinition Height="Auto"/> <!-- 1. Topo: Título da App Selecionada -->
+                <RowDefinition Height="Auto"/> <!-- 2. Bloco de Pasta e Backup -->
+                <RowDefinition Height="Auto"/> <!-- 3. Seletor de Versão (ERP ou App Genérica) -->
+                <RowDefinition Height="Auto"/> <!-- 4. Progresso -->
+                <RowDefinition Height="*"/>    <!-- 5. Console de Logs -->
+                <RowDefinition Height="Auto"/> <!-- 6. Barra de Sucesso -->
+            </Grid.RowDefinitions>
+
+            <!-- 0. BANNER DE ATUALIZAÇÃO DO APLICATIVO (GITHUB) -->
+            <Border x:Name="BannerAppUpdate" Grid.Row="0" Visibility="Collapsed" 
+                    Background="#0C203B" BorderBrush="#0284C7" BorderThickness="1.5" 
+                    CornerRadius="10" Padding="14,10" Margin="0,0,0,12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <Border Grid.Column="0" Width="38" Height="38" CornerRadius="8" Background="#0369A1" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <TextBlock Text="🚀" FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="NOVA VERSÃO DO ATUALIZADOR DISPONÍVEL:" FontSize="11" FontWeight="Bold" Foreground="#38BDF8" Margin="0,0,6,0"/>
+                            <Border Background="#0284C7" CornerRadius="4" Padding="6,1" Margin="0,0,8,0">
+                                <TextBlock x:Name="TxtAppUpdateVersion" Text="v1.0.1" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF"/>
+                            </Border>
+                            <TextBlock x:Name="TxtAppUpdateSize" Text="" FontSize="10.5" Foreground="#94A3B8"/>
+                        </StackPanel>
+                        <TextBlock x:Name="TxtAppUpdateNotes" Text="Uma nova atualização foi disponibilizada no GitHub com correções e novas funcionalidades." 
+                                   FontSize="11.5" Foreground="#E2E8F0" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="TxtAppUpdateStatus" Text="" FontSize="11" Foreground="#38BDF8" Margin="0,3,0,0" Visibility="Collapsed"/>
+                        <ProgressBar x:Name="PbAppUpdate" Height="5" Margin="0,6,0,0" Background="#1E293B" Foreground="#38BDF8" Visibility="Collapsed"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
+                        <Button x:Name="BtnApplyAppUpdate" Content="⚡ Atualizar Agora" Style="{StaticResource PrimaryActionBtnStyle}" 
+                                Height="34" Padding="14,0" Margin="0,0,6,0" Click="BtnApplyAppUpdate_Click"/>
+                        <Button Content="✕" ToolTip="Fechar aviso" Style="{StaticResource SecondaryBtnStyle}" 
+                                Height="34" Width="34" Padding="0" Click="BtnDismissAppUpdate_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 1. TOPO DA APLICAÇÃO -->
+            <Grid Grid.Row="1" Margin="0,0,0,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock x:Name="TxtAppTitle" Text="ERP (RP One)" FontSize="18" FontWeight="Bold" Foreground="#F8FAFC"/>
+                        <Border x:Name="BadgeAppCategory" Background="#1E293B" CornerRadius="4" Padding="8,3" Margin="10,0,0,0">
+                            <TextBlock x:Name="TxtAppCategory" Text="Sistema Central" FontSize="10.5" FontWeight="Bold" Foreground="#38BDF8"/>
+                        </Border>
+                    </StackPanel>
+                    <TextBlock x:Name="TxtRemotePathInfo" Text="FTP: /install/erp" FontSize="11.5" Foreground="#64748B" Margin="0,3,0,0"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="📁 Abrir Pasta" Style="{StaticResource SecondaryBtnStyle}" Margin="0,0,8,0" Click="BtnQuickOpenFolder_Click"/>
+                    <Button Content="🗄️ Ver Backups" Style="{StaticResource SecondaryBtnStyle}" Click="BtnQuickOpenBackup_Click"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- 2. BLOCO DE PASTA DE INSTALAÇÃO E BACKUP -->
+            <Border Grid.Row="2" Background="#111827" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="10" Padding="14,10" Margin="0,0,0,14">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="PASTA DE INSTALAÇÃO DO SISTEMA" FontSize="10" FontWeight="Bold" Foreground="#64748B"/>
+                        <TextBlock x:Name="TxtCurrentDest" Text="C:\ERP" FontSize="13" FontWeight="SemiBold" Foreground="#E2E8F0" Margin="0,2,0,2"/>
+                        <TextBlock x:Name="TxtBackupRuleInfo" Text="Regra de backup: Versões antigas são salvas em 'fix bkp' e 'beta bkp'" 
+                                   FontSize="11" Foreground="#059669"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="BtnChangeDest" Content="Alterar Pasta" Style="{StaticResource SecondaryBtnStyle}" 
+                                Padding="12,7" Click="BtnChangeDest_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 3. ÁREA DE SELEÇÃO DE VERSÃO -->
+            <!-- CASO 1: BLOCO ESPECÍFICO DO ERP (FIX / BETA DELPHI 10 E 13) -->
+            <Border x:Name="PanelErpVersions" Grid.Row="3" Background="#0F172A" BorderBrush="#1E293B" BorderThickness="1" 
+                    CornerRadius="12" Padding="14,12" Margin="0,0,0,14">
+                <StackPanel>
+                    <Grid Margin="2,0,2,8">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Background="#1E293B" CornerRadius="4" Padding="6,2" Margin="0,0,8,0">
+                                <TextBlock Text="VERSÕES ERP" FontSize="10" FontWeight="Bold" Foreground="#38BDF8"/>
+                            </Border>
+                            <TextBlock Text="SELECIONE A VERSÃO DO ERP PARA INSTALAR" FontSize="11" FontWeight="Bold" Foreground="#94A3B8"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- OPÇÃO 1: ERP Fix Delphi 10 -->
+                        <RadioButton x:Name="RbOpcao1" Grid.Row="0" Grid.Column="0" GroupName="ErpVersion" 
+                                     Style="{StaticResource VersionCardStyle}" IsChecked="True" Checked="RbOption_Checked">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
+                                    <TextBlock Text="ERP Fix" FontSize="14" FontWeight="Bold" Foreground="#F8FAFC"/>
+                                    <TextBlock x:Name="TxtErpFixD10Sub" Text="Versão oficial de produção • Estável" FontSize="11" Foreground="#94A3B8" Margin="0,2,0,0"/>
+                                    <TextBlock Text="Será instalado como: ERP.exe" FontSize="11.5" Foreground="#38BDF8" Margin="0,3,0,0"/>
+                                    <TextBlock x:Name="TxtErpFixD10Size" Text="Tamanho: --" FontSize="10.5" Foreground="#94A3B8" Margin="0,1,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Background="#1E1B4B" BorderBrush="#312E81" BorderThickness="1" CornerRadius="5" Padding="6,2" Margin="0,0,4,0">
+                                        <TextBlock Text="Delphi 10" FontSize="10" FontWeight="SemiBold" Foreground="#A5B4FC"/>
+                                    </Border>
+                                    <Border Background="#064E3B" BorderBrush="#047857" BorderThickness="1" CornerRadius="5" Padding="6,2">
+                                        <TextBlock Text="Estável" FontSize="10" FontWeight="SemiBold" Foreground="#34D399"/>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </RadioButton>
+
+                        <!-- OPÇÃO 2: ERP Beta Delphi 10 -->
+                        <RadioButton x:Name="RbOpcao2" Grid.Row="0" Grid.Column="1" GroupName="ErpVersion" 
+                                     Style="{StaticResource VersionCardStyle}" Checked="RbOption_Checked">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
+                                    <TextBlock Text="ERP Beta" FontSize="14" FontWeight="Bold" Foreground="#F8FAFC"/>
+                                    <TextBlock x:Name="TxtErpBetaD10Sub" Text="Versão de testes • Carimbo do servidor" FontSize="11" Foreground="#94A3B8" Margin="0,2,0,0"/>
+                                    <TextBlock x:Name="TxtErpBetaD10Exe" Text="Será instalado como: ERP Beta [data - hora].exe" FontSize="11.5" Foreground="#38BDF8" Margin="0,3,0,0"/>
+                                    <TextBlock x:Name="TxtErpBetaD10Size" Text="Tamanho: --" FontSize="10.5" Foreground="#94A3B8" Margin="0,1,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Background="#1E1B4B" BorderBrush="#312E81" BorderThickness="1" CornerRadius="5" Padding="6,2" Margin="0,0,4,0">
+                                        <TextBlock Text="Delphi 10" FontSize="10" FontWeight="SemiBold" Foreground="#A5B4FC"/>
+                                    </Border>
+                                    <Border Background="#451A03" BorderBrush="#78350F" BorderThickness="1" CornerRadius="5" Padding="6,2">
+                                        <TextBlock Text="Beta" FontSize="10" FontWeight="SemiBold" Foreground="#FBBF24"/>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </RadioButton>
+
+                        <!-- OPÇÃO 3: ERP Fix Delphi 13 -->
+                        <RadioButton x:Name="RbOpcao3" Grid.Row="1" Grid.Column="0" GroupName="ErpVersion" 
+                                     Style="{StaticResource VersionCardStyle}" Checked="RbOption_Checked">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
+                                    <TextBlock Text="ERP Fix (Delphi 13)" FontSize="14" FontWeight="Bold" Foreground="#F8FAFC"/>
+                                    <TextBlock x:Name="TxtErpFixD13Sub" Text="Estável Delphi 13 • DLL SecureBlackbox24" FontSize="11" Foreground="#94A3B8" Margin="0,2,0,0"/>
+                                    <TextBlock x:Name="TxtErpFixD13Exe" Text="Será instalado como: ERP Delphi 13.exe (+ SecureBlackbox24.dll)" FontSize="11.5" Foreground="#38BDF8" Margin="0,3,0,0"/>
+                                    <TextBlock x:Name="TxtErpFixD13Size" Text="Tamanho: --" FontSize="10.5" Foreground="#94A3B8" Margin="0,1,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Background="#2E1065" BorderBrush="#4C1D95" BorderThickness="1" CornerRadius="5" Padding="6,2" Margin="0,0,4,0">
+                                        <TextBlock Text="Delphi 13" FontSize="10" FontWeight="SemiBold" Foreground="#C084FC"/>
+                                    </Border>
+                                    <Border Background="#064E3B" BorderBrush="#047857" BorderThickness="1" CornerRadius="5" Padding="6,2" Margin="0,0,4,0">
+                                        <TextBlock Text="Estável" FontSize="10" FontWeight="SemiBold" Foreground="#34D399"/>
+                                    </Border>
+                                    <Border Background="#082F49" BorderBrush="#0284C7" BorderThickness="1" CornerRadius="5" Padding="5,2">
+                                        <TextBlock Text="+ DLL" FontSize="9.5" FontWeight="Bold" Foreground="#38BDF8"/>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </RadioButton>
+
+                        <!-- OPÇÃO 4: ERP Beta Delphi 13 -->
+                        <RadioButton x:Name="RbOpcao4" Grid.Row="1" Grid.Column="1" GroupName="ErpVersion" 
+                                     Style="{StaticResource VersionCardStyle}" Checked="RbOption_Checked">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
+                                    <TextBlock Text="ERP Beta (Delphi 13)" FontSize="14" FontWeight="Bold" Foreground="#F8FAFC"/>
+                                    <TextBlock x:Name="TxtErpBetaD13Sub" Text="Testes Delphi 13 • Carimbo de data + DLL" FontSize="11" Foreground="#94A3B8" Margin="0,2,0,0"/>
+                                    <TextBlock x:Name="TxtErpBetaD13Exe" Text="Será instalado como: ERP Delphi 13 Beta [data - hora].exe (+ DLL)" FontSize="11.5" Foreground="#38BDF8" Margin="0,3,0,0"/>
+                                    <TextBlock x:Name="TxtErpBetaD13Size" Text="Tamanho: --" FontSize="10.5" Foreground="#94A3B8" Margin="0,1,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Background="#2E1065" BorderBrush="#4C1D95" BorderThickness="1" CornerRadius="5" Padding="6,2" Margin="0,0,4,0">
+                                        <TextBlock Text="Delphi 13" FontSize="10" FontWeight="SemiBold" Foreground="#C084FC"/>
+                                    </Border>
+                                    <Border Background="#451A03" BorderBrush="#78350F" BorderThickness="1" CornerRadius="5" Padding="6,2" Margin="0,0,4,0">
+                                        <TextBlock Text="Beta" FontSize="10" FontWeight="SemiBold" Foreground="#FBBF24"/>
+                                    </Border>
+                                    <Border Background="#082F49" BorderBrush="#0284C7" BorderThickness="1" CornerRadius="5" Padding="5,2">
+                                        <TextBlock Text="+ DLL" FontSize="9.5" FontWeight="Bold" Foreground="#38BDF8"/>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </RadioButton>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- CASO 2: BLOCO DE APLICAÇÃO GENÉRICA (WRPDV, FRENTE, SERVIDORES, ETC.) -->
+            <Border x:Name="PanelGenericApp" Grid.Row="3" Background="#0F172A" BorderBrush="#1E293B" BorderThickness="1" 
+                    CornerRadius="12" Padding="18,14" Margin="0,0,0,14" Visibility="Collapsed">
+                <StackPanel>
+                    <Grid Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Background="#1E293B" CornerRadius="4" Padding="6,2" Margin="0,0,8,0">
+                                <TextBlock Text="VERSÃO DISPONÍVEL" FontSize="10" FontWeight="Bold" Foreground="#38BDF8"/>
+                            </Border>
+                            <TextBlock Text="ÚLTIMA VERSÃO LOCALIZADA NO FTP" FontSize="11" FontWeight="Bold" Foreground="#94A3B8"/>
+                        </StackPanel>
+                        <TextBlock x:Name="TxtGenericFileDate" Text="Modificado em: --" FontSize="11" Foreground="#64748B" HorizontalAlignment="Right"/>
+                    </Grid>
+
+                    <!-- Card da Versão Selecionada -->
+                    <Border Background="#131B2E" BorderBrush="#0284C7" BorderThickness="2" CornerRadius="10" Padding="16,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Width="38" Height="38" Background="#0C2542" CornerRadius="8" Margin="0,0,14,0" VerticalAlignment="Center">
+                                <TextBlock x:Name="TxtGenericAppIcon" Text="🛒" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="TxtGenericTargetVersion" Text="Carregando..." FontSize="15" FontWeight="Bold" Foreground="#F8FAFC"/>
+                                    <Border Background="#064E3B" CornerRadius="4" Padding="6,2" Margin="8,0,0,0">
+                                        <TextBlock Text="Mais Recente" FontSize="10" FontWeight="Bold" Foreground="#34D399"/>
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock x:Name="TxtGenericExeRename" Text="Será instalado como: --" FontSize="12" Foreground="#38BDF8" Margin="0,3,0,0"/>
+                                <TextBlock x:Name="TxtGenericFileSize" Text="Tamanho: --" FontSize="11" Foreground="#94A3B8" Margin="0,2,0,0"/>
+                            </StackPanel>
+
+                            <!-- Seletor de versões anteriores caso existam -->
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                <TextBlock Text="Outras versões:" FontSize="10" Foreground="#94A3B8" Margin="0,0,0,3"/>
+                                <ComboBox x:Name="CmbGenericVersions" Style="{StaticResource DarkComboBoxStyle}" Width="185" 
+                                          SelectionChanged="CmbGenericVersions_SelectionChanged"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- 4. PAINEL DE AÇÃO E PROGRESSO -->
+            <Border Grid.Row="4" Background="#111827" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="10" Padding="14,12" Margin="0,0,0,14">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="0,0,0,8">
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="TxtStatus" Text="Pronto para iniciar a atualização" FontSize="13" FontWeight="SemiBold" Foreground="#E2E8F0"/>
+                            <TextBlock x:Name="TxtTransferred" Text="Tamanho: --" FontSize="11" Foreground="#94A3B8" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button x:Name="BtnCancelUpdate" Content="Cancelar" Style="{StaticResource SecondaryBtnStyle}" 
+                                    Padding="14,8" Margin="0,0,8,0" Visibility="Collapsed" Click="BtnCancelUpdate_Click"/>
+                            <Button x:Name="BtnStartUpdate" Content="⚡ BAIXAR E ATUALIZAR" Style="{StaticResource PrimaryActionBtnStyle}" 
+                                    Click="BtnStartUpdate_Click"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <ProgressBar Grid.Row="1" x:Name="PbProgress" Style="{StaticResource ModernProgressBarStyle}" Value="0" Margin="0,0,0,6"/>
+
+                    <Grid Grid.Row="2">
+                        <TextBlock x:Name="TxtPercent" Text="0%" FontSize="11" FontWeight="Bold" Foreground="#38BDF8"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <TextBlock x:Name="TxtSpeed" Text="Velocidade: --" FontSize="11" Foreground="#94A3B8" Margin="0,0,12,0"/>
+                            <TextBlock x:Name="TxtEta" Text="Tempo: --" FontSize="11" Foreground="#94A3B8"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- 5. TERMINAL DE LOGS -->
+            <Border Grid.Row="5" Background="#080C14" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="10" Padding="10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="4,0,4,6">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="LOG DE EXECUÇÃO" FontSize="10" FontWeight="Bold" Foreground="#64748B" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TxtLogCount" Text="(0 eventos)" FontSize="10" Foreground="#475569" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="Copiar" Style="{StaticResource SecondaryBtnStyle}" Padding="8,3" FontSize="10" Margin="0,0,6,0" Click="BtnCopyLogs_Click"/>
+                            <Button Content="Limpar" Style="{StaticResource SecondaryBtnStyle}" Padding="8,3" FontSize="10" Click="BtnClearLogs_Click"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <ScrollViewer Grid.Row="1" x:Name="ScrollLogs" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="IcLogs">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="2,1">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="65"/>
+                                            <ColumnDefinition Width="55"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding FormattedTime}" FontFamily="Consolas" FontSize="11" Foreground="#64748B"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Tag}" FontFamily="Consolas" FontSize="11" FontWeight="Bold" Foreground="{Binding ColorHex}"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding Text}" FontFamily="Consolas" FontSize="11" Foreground="#E2E8F0" TextWrapping="Wrap"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- 6. BARRA DE SUCESSO PÓS-ATUALIZAÇÃO -->
+            <Border x:Name="PanelSuccess" Grid.Row="6" Background="#064E3B" BorderBrush="#059669" BorderThickness="1" 
+                    CornerRadius="8" Padding="14,10" Margin="0,12,0,0" Visibility="Collapsed">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="✓ Atualização concluída com sucesso!" FontSize="13" FontWeight="Bold" Foreground="#A7F3D0"/>
+                        <TextBlock x:Name="TxtSuccessFilePath" Text="Arquivo instalado em: --" FontSize="11" Foreground="#6EE7B7" Margin="0,2,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="BtnRunErp" Content="🚀 Executar Agora" Style="{StaticResource SecondaryBtnStyle}" 
+                                Background="#047857" Foreground="White" BorderThickness="0" FontWeight="SemiBold" 
+                                Padding="14,8" Margin="0,0,8,0" Click="BtnRunErp_Click"/>
+                        <Button Content="Abrir Pasta" Style="{StaticResource SecondaryBtnStyle}" Padding="12,8" Click="BtnQuickOpenFolder_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

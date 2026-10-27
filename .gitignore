@@ -1,0 +1,14 @@
+# Compilação e binários temporários
+**/bin/
+**/obj/
+Publicacao/
+
+# Visual Studio e IDE
+.vs/
+*.user
+*.suo
+
+# Temporários do Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
