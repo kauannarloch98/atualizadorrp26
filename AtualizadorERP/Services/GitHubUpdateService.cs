@@ -155,17 +155,16 @@ namespace AtualizadorERP.Services
             try
             {
                 using var handler = new HttpClientHandler { AllowAutoRedirect = false };
-                using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
+                using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(6) };
                 client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue(UserAgent, "1.0"));
 
-                string webUrl = $"https://github/{RepoOwner}/{RepoName}/releases/latest";
                 string fullUrl = $"https://github.com/{RepoOwner}/{RepoName}/releases/latest";
                 var response = await client.GetAsync(fullUrl, cancellationToken);
 
-                if (response.StatusCode == System.Net.HttpStatusCode.Found || response.StatusCode == System.Net.HttpStatusCode.MovedPermanently)
+                if (((int)response.StatusCode >= 300 && (int)response.StatusCode < 400) && response.Headers.Location != null)
                 {
-                    var location = response.Headers.Location?.ToString() ?? "";
-                    // Exemplo: https://github.com/kauannarloch98/atualizadorrp26/releases/tag/v1.0.1
+                    var location = response.Headers.Location.ToString();
+                    // Exemplo: https://github.com/kauannarloch98/atualizadorrp26/releases/tag/v1.0.1 ou v.1.2.0.0
                     int tagIdx = location.IndexOf("/releases/tag/", StringComparison.OrdinalIgnoreCase);
                     if (tagIdx >= 0)
                     {
@@ -188,6 +187,35 @@ namespace AtualizadorERP.Services
                     result.ErrorMessage = ex.Message;
             }
 
+            // 3. Fallback de Scraping da página de Releases (se a API e o redirect não funcionarem)
+            if (!result.IsAvailable)
+            {
+                try
+                {
+                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(6) };
+                    client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue(UserAgent, "1.0"));
+                    string releasesHtml = await client.GetStringAsync($"https://github.com/{RepoOwner}/{RepoName}/releases", cancellationToken);
+                    var match = System.Text.RegularExpressions.Regex.Match(releasesHtml, @"/releases/tag/([^""'\s>]+)");
+                    if (match.Success)
+                    {
+                        string tagName = match.Groups[1].Value.Trim().TrimEnd('/');
+                        if (IsNewer(tagName, currentVer, out var remoteVer))
+                        {
+                            result.IsAvailable = true;
+                            result.RemoteVersion = tagName.StartsWith("v", StringComparison.OrdinalIgnoreCase) ? tagName : $"v{tagName}";
+                            result.DownloadUrl = $"https://github.com/{RepoOwner}/{RepoName}/releases/download/{tagName}/AtualizadorERP.exe";
+                            result.AssetName = "AtualizadorERP.exe";
+                            result.HtmlUrl = $"https://github.com/{RepoOwner}/{RepoName}/releases/tag/{tagName}";
+                            return result;
+                        }
+                    }
+                }
+                catch
+                {
+                    // Ignora falha silenciosamente
+                }
+            }
+
             return result;
         }
 
@@ -196,10 +224,20 @@ namespace AtualizadorERP.Services
             parsedRemote = null;
             if (string.IsNullOrWhiteSpace(remoteTag)) return false;
 
+            // Remove quaisquer prefixos não numéricos no início (ex: 'v', 'v.', 'ver-', etc.)
             string clean = remoteTag.Trim();
-            if (clean.StartsWith("v", StringComparison.OrdinalIgnoreCase))
+            int firstDigit = -1;
+            for (int i = 0; i < clean.Length; i++)
             {
-                clean = clean.Substring(1);
+                if (char.IsDigit(clean[i]))
+                {
+                    firstDigit = i;
+                    break;
+                }
+            }
+            if (firstDigit > 0)
+            {
+                clean = clean.Substring(firstDigit);
             }
 
             // Suporta formatos como 1.0.1 ou 1.1.0.0

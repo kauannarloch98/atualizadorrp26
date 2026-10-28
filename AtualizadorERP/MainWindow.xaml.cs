@@ -56,8 +56,23 @@ namespace AtualizadorERP
             AddLog("Aplicativo iniciado. RP Info pronta para operação.", LogLevel.Info);
         }
 
-        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        private System.Windows.Threading.DispatcherTimer? _appUpdateTimer;
+
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            // 1. Inicia checagem silenciosa de atualizações no GitHub imediatamente
+            _ = CheckForAppUpdatesAsync(silent: true);
+
+            // 2. Timer para checagem automática periódica em segundo plano (a cada 5 minutos)
+            _appUpdateTimer?.Stop();
+            _appUpdateTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMinutes(5)
+            };
+            _appUpdateTimer.Tick += async (s, ev) => await CheckForAppUpdatesAsync(silent: true);
+            _appUpdateTimer.Start();
+
+            // 3. Inicia consulta das versões no FTP em segundo plano (sem bloquear o GitHub updater)
             if (!_settings.IsConfigured)
             {
                 AddLog("Atenção: Credenciais do servidor FTP pendentes de configuração.", LogLevel.Warning);
@@ -67,7 +82,7 @@ namespace AtualizadorERP
                 {
                     UpdateCurrentAppUi();
                     AddLog("Configurações iniciais salvas com sucesso!", LogLevel.Success);
-                    await RefreshAllVersionsFromFtpAsync();
+                    _ = RefreshAllVersionsFromFtpAsync();
                 }
                 else
                 {
@@ -76,12 +91,8 @@ namespace AtualizadorERP
             }
             else
             {
-                // Inicia consulta das versões no FTP em segundo plano
-                await RefreshAllVersionsFromFtpAsync();
+                _ = RefreshAllVersionsFromFtpAsync();
             }
-
-            // Inicia checagem silenciosa de atualizações no GitHub
-            _ = CheckForAppUpdatesAsync(silent: true);
         }
 
         // =====================================================================
@@ -689,7 +700,7 @@ namespace AtualizadorERP
             {
                 if (silent)
                 {
-                    await Task.Delay(2500); // Inicialização suave
+                    await Task.Delay(300); // Inicialização suave rápida
                 }
                 else
                 {
