@@ -7,9 +7,12 @@ title Atualizador de ERP - RP Info
 :: ============================================================================
 set "FTP_HOST=ftp.rpinfo.com.br"
 set "FTP_PORT=21"
-set "FTP_USER=kauan.martins"
-set "FTP_PASS=7dAF716ScV31"
+set "FTP_USER="
+set "FTP_PASS="
 set "DEST_DIR=C:\ERP"
+
+if not defined FTP_USER set /p "FTP_USER=Informe seu usuario FTP RP Info: "
+if not defined FTP_PASS set /p "FTP_PASS=Informe sua senha FTP RP Info: "
 
 :: ============================================================================
 :: LOCALIZACAO DO WINRAR

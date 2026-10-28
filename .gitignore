@@ -8,6 +8,12 @@ Publicacao/
 *.user
 *.suo
 
+# Configurações e credenciais locais
+**/settings.json
+*.local.json
+*.env
+*.credentials
+
 # Temporários do Windows
 Thumbs.db
 ehthumbs.db
