@@ -38,11 +38,44 @@ namespace AtualizadorERP.Services
 
         public Func<string, int, Task<bool>>? RequestCloseProcessAsync { get; set; }
 
+        private static readonly TimeZoneInfo BrasiliaTimeZone = GetBrasiliaTimeZone();
+
+        private static TimeZoneInfo GetBrasiliaTimeZone()
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
+            }
+            catch
+            {
+                return TimeZoneInfo.CreateCustomTimeZone("BRT", TimeSpan.FromHours(-3), "Horário de Brasília", "Horário de Brasília");
+            }
+        }
+
+        public static DateTime GetBrasiliaNow()
+        {
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTimeZone);
+        }
+
+        public static DateTime ConvertFtpTimeToBrasilia(DateTime ftpTime)
+        {
+            if (ftpTime == default || ftpTime == DateTime.MinValue)
+                return default;
+
+            // O protocolo FTP (MDTM / MLSD) retorna os horários em UTC (+00:00) com DateTimeKind.Unspecified.
+            // Convertemos sempre de UTC para o Horário Oficial de Brasília (UTC-3).
+            DateTime utcTime = ftpTime.Kind == DateTimeKind.Local
+                ? ftpTime.ToUniversalTime()
+                : DateTime.SpecifyKind(ftpTime, DateTimeKind.Utc);
+
+            return TimeZoneInfo.ConvertTimeFromUtc(utcTime, BrasiliaTimeZone);
+        }
+
         private void Log(string message, LogLevel level = LogLevel.Info)
         {
             OnLog?.Invoke(new LogMessage
             {
-                Timestamp = DateTime.Now,
+                Timestamp = GetBrasiliaNow(),
                 Level = level,
                 Text = message
             });
@@ -130,15 +163,15 @@ namespace AtualizadorERP.Services
                 if (option.IsBeta)
                 {
                     ReportProgress(12, "Consultando carimbo de data/hora no FTP...");
-                    DateTime remoteModified = await client.GetModifiedTime(option.RemoteFile, cancellationToken);
+                    DateTime remoteModified = ConvertFtpTimeToBrasilia(await client.GetModifiedTime(option.RemoteFile, cancellationToken));
                     if (remoteModified == default)
                     {
-                        remoteModified = DateTime.Now;
+                        remoteModified = GetBrasiliaNow();
                     }
 
                     string timestamp = remoteModified.ToString(@"dd.MM - HH\hmm");
                     finalExeName = $"{option.BaseName} {timestamp}.exe";
-                    Log($"Versão Beta identificada. Carimbo FTP: {timestamp}", LogLevel.Info);
+                    Log($"Versão Beta identificada. Carimbo FTP (Brasília): {timestamp}", LogLevel.Info);
                 }
                 else
                 {
@@ -404,7 +437,7 @@ namespace AtualizadorERP.Services
                             FileName = item.Name,
                             VersionNumber = versionStr,
                             SizeBytes = item.Size,
-                            Modified = item.Modified
+                            Modified = ConvertFtpTimeToBrasilia(item.Modified)
                         });
                     }
                 }
@@ -436,7 +469,7 @@ namespace AtualizadorERP.Services
                 {
                     try
                     {
-                        DateTime dt = await client.GetModifiedTime(opt.RemoteFile, cancellationToken);
+                        DateTime dt = ConvertFtpTimeToBrasilia(await client.GetModifiedTime(opt.RemoteFile, cancellationToken));
                         long size = 0;
                         try
                         {
@@ -508,7 +541,7 @@ namespace AtualizadorERP.Services
                     {
                         string nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
                         string ext = Path.GetExtension(fileName);
-                        string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                        string timestamp = GetBrasiliaNow().ToString("yyyyMMdd_HHmmss");
                         targetPath = Path.Combine(backupDir, $"{nameWithoutExt}_{timestamp}{ext}");
                     }
 

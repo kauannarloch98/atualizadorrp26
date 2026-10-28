@@ -647,7 +647,7 @@ namespace AtualizadorERP
             {
                 var entry = new LogMessage
                 {
-                    Timestamp = DateTime.Now,
+                    Timestamp = FtpUpdaterService.GetBrasiliaNow(),
                     Level = level,
                     Text = message
                 };

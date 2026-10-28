@@ -1,4 +1,5 @@
 using System;
+using AtualizadorERP.Services;
 
 namespace AtualizadorERP.Models
 {
@@ -12,7 +13,7 @@ namespace AtualizadorERP.Models
 
     public class LogMessage
     {
-        public DateTime Timestamp { get; set; } = DateTime.Now;
+        public DateTime Timestamp { get; set; } = FtpUpdaterService.GetBrasiliaNow();
         public LogLevel Level { get; set; } = LogLevel.Info;
         public string Text { get; set; } = string.Empty;
 
