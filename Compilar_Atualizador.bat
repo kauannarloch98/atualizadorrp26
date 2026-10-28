@@ -20,6 +20,10 @@ if %errorlevel% neq 0 (
     )
 )
 
+for /f "tokens=3 delims=<>" %%v in ('findstr "<Version>" AtualizadorERP.csproj') do set "APP_VER=%%v"
+echo Versao configurada no projeto: %APP_VER%
+echo.
+
 echo Compilando em Release (win-x64, Self-Contained, Single-File)...
 "%DOTNET_CMD%" publish AtualizadorERP.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o "%~dp0Publicacao"
 
@@ -27,7 +31,7 @@ if %errorlevel% equ 0 (
     copy /y "%~dp0Publicacao\AtualizadorERP.exe" "%~dp0AtualizadorERP.exe" >nul
     echo.
     echo ================================================================
-    echo [SUCESSO] Executavel gerado em:
+    echo [SUCESSO] Executavel v%APP_VER% gerado em:
     echo "%~dp0AtualizadorERP.exe"
     echo ================================================================
 ) else (

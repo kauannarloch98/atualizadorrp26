@@ -51,7 +51,7 @@ namespace AtualizadorERP
 
             Loaded += MainWindow_Loaded;
 
-            TxtAppVersionSidebar.Text = $"v{GitHubUpdateService.GetCurrentVersion().ToString(3)}";
+            TxtAppVersionSidebar.Text = GitHubUpdateService.GetCurrentVersionString();
 
             AddLog("Aplicativo iniciado. RP Info pronta para operação.", LogLevel.Info);
         }

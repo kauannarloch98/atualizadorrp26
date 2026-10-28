@@ -11,9 +11,12 @@ echo Verificando status dos arquivos...
 git status
 echo.
 
-echo Adicionando e commitando alteracoes...
+set "APP_VER=1.0.0"
+for /f "tokens=3 delims=<>" %%v in ('findstr "<Version>" "%~dp0AtualizadorERP\AtualizadorERP.csproj" 2^>nul') do set "APP_VER=%%v"
+
+echo Adicionando e commitando alteracoes (v%APP_VER%)...
 git add .
-git commit -m "Versao 1.0.0 - Atualizador de Sistemas RP Info com auto-update do GitHub e suporte Delphi 13" >nul 2>&1
+git commit -m "Versao %APP_VER% - Atualizador de Sistemas RP Info" >nul 2>&1
 
 echo.
 echo Enviando para o GitHub (main e tags)...
