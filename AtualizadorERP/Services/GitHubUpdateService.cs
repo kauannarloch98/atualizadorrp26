@@ -313,6 +313,34 @@ namespace AtualizadorERP.Services
                 throw new InvalidOperationException("O arquivo de atualização baixado é inválido ou está corrompido.");
             }
 
+            // Validação de segurança: se o executável baixado for menor ou igual à versão atual,
+            // cancela a substituição para evitar o loop de abrir na mesma versão
+            try
+            {
+                var downloadedVerInfo = FileVersionInfo.GetVersionInfo(tempFile);
+                var downloadedVer = new Version(
+                    Math.Max(0, downloadedVerInfo.FileMajorPart),
+                    Math.Max(0, downloadedVerInfo.FileMinorPart),
+                    Math.Max(0, downloadedVerInfo.FileBuildPart),
+                    Math.Max(0, downloadedVerInfo.FilePrivatePart));
+
+                if (downloadedVer <= GetCurrentVersion())
+                {
+                    try { File.Delete(tempFile); } catch { }
+                    throw new InvalidOperationException(
+                        $"O executável baixado do GitHub possui versão interna ({downloadedVer}) que não é superior à versão atual ({GetCurrentVersion()}).\n\n" +
+                        "A substituição foi cancelada para evitar um loop infinito de reinicialização. O binário anexado à Release precisa ser compilado com a nova versão.");
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
+            catch
+            {
+                // Prossegue caso a leitura de versão falhe por permissão do SO
+            }
+
             // Descobrir o executável atual em execução
             string? currentExe = Environment.ProcessPath;
             if (string.IsNullOrEmpty(currentExe) || !File.Exists(currentExe))
