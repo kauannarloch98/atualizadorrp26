@@ -8,6 +8,7 @@ namespace AtualizadorERP.Models
         public string Title { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty; // "Delphi 10" ou "Delphi 13"
         public string Badge { get; set; } = string.Empty;    // "Fix (Estável)" ou "Beta"
+        public string RemoteFolder => IsDelphi13 ? "install/erp/delphi_13" : "install/erp";
         public string RemoteFile { get; set; } = string.Empty;
         public string BaseName { get; set; } = string.Empty;
         public bool IsBeta { get; set; }
@@ -50,7 +51,7 @@ namespace AtualizadorERP.Models
                     Title = "ERP Fix Delphi 13",
                     Category = "Delphi 13",
                     Badge = "Estável",
-                    RemoteFile = "install/erp/delphi_13/ERP_Fix.rar",
+                    RemoteFile = "install/erp/delphi_13/erp_fix.rar",
                     BaseName = "ERP Delphi 13",
                     IsBeta = false,
                     IsDelphi13 = true,
@@ -62,7 +63,7 @@ namespace AtualizadorERP.Models
                     Title = "ERP Beta Delphi 13",
                     Category = "Delphi 13",
                     Badge = "Beta",
-                    RemoteFile = "install/erp/delphi_13/Erp_Beta.rar",
+                    RemoteFile = "install/erp/delphi_13/erp_beta.rar",
                     BaseName = "ERP Delphi 13 Beta",
                     IsBeta = true,
                     IsDelphi13 = true,

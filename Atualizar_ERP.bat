@@ -87,7 +87,7 @@ goto EXECUTAR
 
 :OPCAO3
 set "TITULO=ERP Fix Delphi 13"
-set "REMOTE_FILE=install/erp/delphi_13/ERP_Fix.rar"
+set "REMOTE_FILE=install/erp/delphi_13/erp_fix.rar"
 set "IS_BETA=0"
 set "IS_DELPHI13=1"
 set "BASE_NAME=ERP Delphi 13"
@@ -95,7 +95,7 @@ goto EXECUTAR
 
 :OPCAO4
 set "TITULO=ERP Beta Delphi 13"
-set "REMOTE_FILE=install/erp/delphi_13/Erp_Beta.rar"
+set "REMOTE_FILE=install/erp/delphi_13/erp_beta.rar"
 set "IS_BETA=1"
 set "IS_DELPHI13=1"
 set "BASE_NAME=ERP Delphi 13 Beta -"

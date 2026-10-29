@@ -28,6 +28,8 @@ namespace AtualizadorERP.Services
         public int OptionId { get; set; }
         public DateTime Modified { get; set; }
         public long SizeBytes { get; set; }
+        public string RemoteFileName { get; set; } = string.Empty;
+        public string RemoteFullPath { get; set; } = string.Empty;
         public string FormattedSize => SizeBytes > 0 ? $"{(SizeBytes / (1024.0 * 1024.0)):0.0} MB" : "--";
     }
 
@@ -104,6 +106,130 @@ namespace AtualizadorERP.Services
         }
 
         // =====================================================================
+        // RESOLUÇÃO DINÂMICA E CASE-INSENSITIVE NO SERVIDOR FTP
+        // =====================================================================
+        public async Task<List<FtpListItem>> GetDirectoryListingCaseInsensitiveAsync(AsyncFtpClient client, string remoteFolder, CancellationToken cancellationToken)
+        {
+            // 1. Tenta listar diretamente
+            try
+            {
+                var items = await client.GetListing(remoteFolder, cancellationToken);
+                if (items != null && items.Length > 0)
+                {
+                    return items.ToList();
+                }
+            }
+            catch
+            {
+                // Falhou na tentativa direta (ex: diferença de maiúsculas/minúsculas no caminho)
+            }
+
+            // 2. Resolução case-insensitive segmento a segmento
+            string resolvedPath = await ResolveRemoteDirectoryPathAsync(client, remoteFolder, cancellationToken);
+            try
+            {
+                var items = await client.GetListing(resolvedPath, cancellationToken);
+                return items?.ToList() ?? new List<FtpListItem>();
+            }
+            catch (Exception ex)
+            {
+                Log($"Aviso ao consultar pasta '{remoteFolder}': {ex.Message}", LogLevel.Warning);
+                return new List<FtpListItem>();
+            }
+        }
+
+        private async Task<string> ResolveRemoteDirectoryPathAsync(AsyncFtpClient client, string remoteFolder, CancellationToken cancellationToken)
+        {
+            string clean = remoteFolder.Trim().Trim('/').Replace('\\', '/');
+            if (string.IsNullOrEmpty(clean)) return "/";
+
+            string[] parts = clean.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            string current = "";
+
+            foreach (string part in parts)
+            {
+                string parent = string.IsNullOrEmpty(current) ? "/" : current;
+                try
+                {
+                    var listing = await client.GetListing(parent, cancellationToken);
+                    var match = listing.FirstOrDefault(i =>
+                        (i.Type == FtpObjectType.Directory || i.Type == FtpObjectType.Link) &&
+                        i.Name.Equals(part, StringComparison.OrdinalIgnoreCase));
+
+                    if (match != null)
+                    {
+                        current = string.IsNullOrEmpty(current) ? match.Name : $"{current}/{match.Name}";
+                        continue;
+                    }
+                }
+                catch
+                {
+                }
+
+                current = string.IsNullOrEmpty(current) ? part : $"{current}/{part}";
+            }
+
+            return current;
+        }
+
+        /// <summary>
+        /// Regra de identificação dos pacotes do ERP:
+        /// - Se tiver "ERP" e "BETA" no mesmo nome (independente de maiúsculas ou minúsculas) = Beta
+        /// - Onde tiver somente "ERP" (independente de maiúsculas ou minúsculas, sem 'beta') = Fix
+        /// </summary>
+        public static FtpListItem? FindErpPackageInListing(IEnumerable<FtpListItem> items, bool isBeta)
+        {
+            var rarFiles = items
+                .Where(i => i.Type == FtpObjectType.File && i.Name.EndsWith(".rar", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (rarFiles.Count == 0) return null;
+
+            if (isBeta)
+            {
+                // Se tiver ERP e BETA no mesmo nome = Beta
+                var betaWithErp = rarFiles
+                    .Where(i => i.Name.Contains("erp", StringComparison.OrdinalIgnoreCase) &&
+                                i.Name.Contains("beta", StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(i => i.Modified)
+                    .ToList();
+
+                if (betaWithErp.Count > 0) return betaWithErp[0];
+
+                // Fallback: qualquer .rar que contenha 'beta'
+                return rarFiles
+                    .Where(i => i.Name.Contains("beta", StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(i => i.Modified)
+                    .FirstOrDefault();
+            }
+            else
+            {
+                // Onde tiver somente ERP (sem 'beta') = Fix (ex: erp.rar, ERP.rar, erp_fix.rar, ERP_Fix.rar)
+                var fixWithErp = rarFiles
+                    .Where(i => i.Name.Contains("erp", StringComparison.OrdinalIgnoreCase) &&
+                                !i.Name.Contains("beta", StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(i => i.Modified)
+                    .ToList();
+
+                if (fixWithErp.Count > 0) return fixWithErp[0];
+
+                // Fallback: qualquer .rar que não contenha 'beta'
+                return rarFiles
+                    .Where(i => !i.Name.Contains("beta", StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(i => i.Modified)
+                    .FirstOrDefault();
+            }
+        }
+
+        public static FtpListItem? FindSecureBlackboxDll(IEnumerable<FtpListItem> items)
+        {
+            return items.FirstOrDefault(i =>
+                i.Type == FtpObjectType.File &&
+                (i.Name.Equals("SecureBlackbox24.dll", StringComparison.OrdinalIgnoreCase) ||
+                 (i.Name.Contains("secureblackbox", StringComparison.OrdinalIgnoreCase) && i.Name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))));
+        }
+
+        // =====================================================================
         // ATUALIZAÇÃO DO ERP (SUITE DELPHI 10 / DELPHI 13)
         // =====================================================================
         public async Task<string> ExecuteUpdateAsync(ErpOption option, AppSettings settings, CancellationToken cancellationToken)
@@ -152,18 +278,29 @@ namespace AtualizadorERP.Services
 
                 cancellationToken.ThrowIfCancellationRequested();
 
-                ReportProgress(10, "Verificando arquivo remoto...");
-                bool exists = await client.FileExists(option.RemoteFile, cancellationToken);
-                if (!exists)
+                ReportProgress(10, "Localizando pacote no servidor FTP...");
+                string remoteFolder = option.RemoteFolder;
+                var folderItems = await GetDirectoryListingCaseInsensitiveAsync(client, remoteFolder, cancellationToken);
+                var package = FindErpPackageInListing(folderItems, option.IsBeta);
+
+                if (package == null)
                 {
-                    throw new FileNotFoundException($"O arquivo '{option.RemoteFile}' não foi encontrado no servidor FTP.");
+                    string tipo = option.IsBeta ? "Beta" : "Fix";
+                    throw new FileNotFoundException($"Nenhum pacote {tipo} (.rar) do ERP foi encontrado na pasta '{remoteFolder}' do servidor FTP.");
                 }
+
+                string remoteFile = package.FullName;
+                Log($"Pacote remoto identificado: {package.Name} (Caminho: {remoteFile})", LogLevel.Info);
 
                 string finalExeName;
                 if (option.IsBeta)
                 {
                     ReportProgress(12, "Consultando carimbo de data/hora no FTP...");
-                    DateTime remoteModified = ConvertFtpTimeToBrasilia(await client.GetModifiedTime(option.RemoteFile, cancellationToken));
+                    DateTime remoteModified = ConvertFtpTimeToBrasilia(package.Modified);
+                    if (remoteModified == default)
+                    {
+                        remoteModified = ConvertFtpTimeToBrasilia(await client.GetModifiedTime(remoteFile, cancellationToken));
+                    }
                     if (remoteModified == default)
                     {
                         remoteModified = GetBrasiliaNow();
@@ -182,7 +319,7 @@ namespace AtualizadorERP.Services
                 cancellationToken.ThrowIfCancellationRequested();
 
                 // Download
-                Log($"Baixando arquivo: {option.RemoteFile}...", LogLevel.Info);
+                Log($"Baixando arquivo: {package.Name}...", LogLevel.Info);
                 ReportProgress(15, "Iniciando download...");
 
                 var progressHandler = new Progress<FtpProgress>(p =>
@@ -196,7 +333,7 @@ namespace AtualizadorERP.Services
                     ReportProgress(overallPercent, $"Baixando: {p.Progress:0.0}% ({transferredStr})", speedStr, transferredStr, etaStr);
                 });
 
-                var status = await client.DownloadFile(tempRar, option.RemoteFile, FtpLocalExists.Overwrite, FtpVerify.None, progressHandler, cancellationToken);
+                var status = await client.DownloadFile(tempRar, remoteFile, FtpLocalExists.Overwrite, FtpVerify.None, progressHandler, cancellationToken);
                 if (status != FtpStatus.Success && !File.Exists(tempRar))
                 {
                     throw new Exception("Falha no download do pacote do servidor FTP.");
@@ -217,7 +354,10 @@ namespace AtualizadorERP.Services
                     throw new Exception("Falha ao descompactar o arquivo RAR baixado.");
                 }
 
-                var exeFiles = Directory.GetFiles(tempExtract, "*.exe", SearchOption.AllDirectories);
+                var exeFiles = Directory.GetFiles(tempExtract, "*", SearchOption.AllDirectories)
+                    .Where(f => f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+
                 if (exeFiles.Length == 0)
                 {
                     throw new FileNotFoundException("Nenhum arquivo executável (.exe) foi encontrado dentro do pacote RAR.");
@@ -262,27 +402,11 @@ namespace AtualizadorERP.Services
                         ReportProgress(overallPercent, $"Baixando DLL: {p.Progress:0.0}%", p.TransferSpeedToString());
                     });
 
-                    string remoteDll = option.DllRemoteFile;
+                    var dllItem = FindSecureBlackboxDll(folderItems);
+                    string remoteDll = dllItem != null ? dllItem.FullName : option.DllRemoteFile;
+
                     try
                     {
-                        if (!await client.FileExists(remoteDll, cancellationToken))
-                        {
-                            string[] fallbacks = new[]
-                            {
-                                "install/erp/delphi_13/SecureBlackbox24.dll",
-                                "install/erp/delphi_13/secureblackbox24.dll",
-                                "install/erp/Delphi_13/SecureBlackbox24.dll"
-                            };
-                            foreach (var fb in fallbacks)
-                            {
-                                if (await client.FileExists(fb, cancellationToken))
-                                {
-                                    remoteDll = fb;
-                                    break;
-                                }
-                            }
-                        }
-
                         await client.DownloadFile(destDll, remoteDll, FtpLocalExists.Overwrite, FtpVerify.None, dllProgress, cancellationToken);
                         Log($"SecureBlackbox24.dll atualizada com sucesso em: {destDll}", LogLevel.Success);
                     }
@@ -417,15 +541,19 @@ namespace AtualizadorERP.Services
                 using var client = CreateFtpClient(settings);
                 await client.AutoConnect(cancellationToken);
 
-                var items = await client.GetListing(app.RemoteFolder, cancellationToken);
+                var items = await GetDirectoryListingCaseInsensitiveAsync(client, app.RemoteFolder, cancellationToken);
                 foreach (var item in items)
                 {
                     if (item.Type == FtpObjectType.File && item.Name.EndsWith(".rar", StringComparison.OrdinalIgnoreCase))
                     {
-                        if (!string.IsNullOrEmpty(app.FilePrefix) &&
-                            !item.Name.StartsWith(app.FilePrefix, StringComparison.OrdinalIgnoreCase))
+                        if (!string.IsNullOrEmpty(app.FilePrefix))
                         {
-                            continue;
+                            string cleanPrefix = app.FilePrefix.TrimEnd('_', '-');
+                            if (!item.Name.StartsWith(app.FilePrefix, StringComparison.OrdinalIgnoreCase) &&
+                                !item.Name.Contains(cleanPrefix, StringComparison.OrdinalIgnoreCase))
+                            {
+                                continue;
+                            }
                         }
 
                         var match = Regex.Match(item.Name, @"\d+(\.\d+)+");
@@ -464,25 +592,49 @@ namespace AtualizadorERP.Services
                 using var client = CreateFtpClient(settings);
                 await client.AutoConnect(cancellationToken);
 
+                // Obtém a listagem das pastas do Delphi 10 e Delphi 13 de forma case-insensitive
+                var d10Items = await GetDirectoryListingCaseInsensitiveAsync(client, "install/erp", cancellationToken);
+                var d13Items = await GetDirectoryListingCaseInsensitiveAsync(client, "install/erp/delphi_13", cancellationToken);
+
                 var options = ErpOption.GetDefaultOptions();
                 foreach (var opt in options)
                 {
                     try
                     {
-                        DateTime dt = ConvertFtpTimeToBrasilia(await client.GetModifiedTime(opt.RemoteFile, cancellationToken));
-                        long size = 0;
-                        try
-                        {
-                            size = await client.GetFileSize(opt.RemoteFile, -1, cancellationToken);
-                        }
-                        catch { }
+                        var folderItems = opt.IsDelphi13 ? d13Items : d10Items;
+                        var package = FindErpPackageInListing(folderItems, opt.IsBeta);
 
-                        result[opt.Id] = new ErpVersionServerInfo
+                        if (package != null)
                         {
-                            OptionId = opt.Id,
-                            Modified = dt,
-                            SizeBytes = size
-                        };
+                            DateTime dt = ConvertFtpTimeToBrasilia(package.Modified);
+                            if (dt == default)
+                            {
+                                try
+                                {
+                                    dt = ConvertFtpTimeToBrasilia(await client.GetModifiedTime(package.FullName, cancellationToken));
+                                }
+                                catch { }
+                            }
+
+                            long size = package.Size;
+                            if (size <= 0)
+                            {
+                                try
+                                {
+                                    size = await client.GetFileSize(package.FullName, -1, cancellationToken);
+                                }
+                                catch { }
+                            }
+
+                            result[opt.Id] = new ErpVersionServerInfo
+                            {
+                                OptionId = opt.Id,
+                                Modified = dt,
+                                SizeBytes = size,
+                                RemoteFileName = package.Name,
+                                RemoteFullPath = package.FullName
+                            };
+                        }
                     }
                     catch
                     {
