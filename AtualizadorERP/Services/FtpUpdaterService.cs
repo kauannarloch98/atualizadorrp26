@@ -292,7 +292,7 @@ namespace AtualizadorERP.Services
                 string remoteFile = package.FullName;
                 Log($"Pacote remoto identificado: {package.Name} (Caminho: {remoteFile})", LogLevel.Info);
 
-                string finalExeName;
+                string finalExeName = $"{option.BaseName}.exe";
                 if (option.IsBeta)
                 {
                     ReportProgress(12, "Consultando carimbo de data/hora no FTP...");
@@ -306,13 +306,14 @@ namespace AtualizadorERP.Services
                         remoteModified = GetBrasiliaNow();
                     }
 
-                    string timestamp = remoteModified.ToString(@"dd.MM - HH\hmm");
-                    finalExeName = $"{option.BaseName} {timestamp}.exe";
-                    Log($"Versão Beta identificada. Carimbo FTP (Brasília): {timestamp}", LogLevel.Info);
+                    string timestamp = remoteModified.ToString(@"dd.MM.yyyy - HH\hmm");
+                    Log($"Versão Beta identificada ({package.Name}). Carimbo FTP (Brasília): {timestamp}", LogLevel.Info);
                 }
                 else
                 {
-                    finalExeName = $"{option.BaseName}.exe";
+                    DateTime remoteModified = ConvertFtpTimeToBrasilia(package.Modified);
+                    string timestamp = remoteModified != default ? remoteModified.ToString(@"dd.MM.yyyy - HH\hmm") : "";
+                    Log($"Versão Fix identificada ({package.Name}). Carimbo FTP (Brasília): {timestamp}", LogLevel.Info);
                 }
 
                 Log($"Nome do executável final: {finalExeName}", LogLevel.Info);
@@ -506,7 +507,14 @@ namespace AtualizadorERP.Services
 
                 // REGRA DE BACKUP: Mover versões antigas para a pasta '[Nome] bkp'
                 ReportProgress(88, $"Criando backup em '{app.BackupFolderName}'...");
-                BackupFiles(destDir, app.BackupFolderName, $"*{app.StandardExePrefix}*.exe");
+                if (app.Id.Equals("ClientRP", StringComparison.OrdinalIgnoreCase))
+                {
+                    BackupFiles(destDir, app.BackupFolderName, "*Clien*RP*.exe");
+                }
+                else
+                {
+                    BackupFiles(destDir, app.BackupFolderName, $"*{app.StandardExePrefix}*.exe");
+                }
 
                 ReportProgress(94, "Instalando novo executável...");
                 Log($"Instalando em: {destExe}", LogLevel.Info);
@@ -671,10 +679,9 @@ namespace AtualizadorERP.Services
 
                 foreach (var file in existingFiles)
                 {
-
+                    string fileNameOnly = Path.GetFileName(file);
                     if (!string.IsNullOrEmpty(excludePattern))
                     {
-                        string fileNameOnly = Path.GetFileName(file);
                         if (fileNameOnly.Contains("Beta", StringComparison.OrdinalIgnoreCase))
                         {
                             continue;
@@ -686,19 +693,49 @@ namespace AtualizadorERP.Services
                         Directory.CreateDirectory(backupDir);
                     }
 
-                    string fileName = Path.GetFileName(file);
-                    string targetPath = Path.Combine(backupDir, fileName);
+                    var fi = new FileInfo(file);
+                    DateTime fileModTime = ConvertFtpTimeToBrasilia(fi.LastWriteTimeUtc);
+                    if (fileModTime == default || fileModTime <= DateTime.MinValue)
+                    {
+                        fileModTime = GetBrasiliaNow();
+                    }
 
+                    string nameWithoutExt = Path.GetFileNameWithoutExtension(file);
+                    string ext = Path.GetExtension(file);
+
+                    // Formato do backup: [NomeDoArquivo] [Data de Modificação].exe
+                    // Exemplo: ERP 29.10.2026 - 08h04.exe ou ERPBeta 29.10.2026 - 08h02.exe
+                    string targetFileName;
+                    if (Regex.IsMatch(nameWithoutExt, @"\d{2}\.\d{2}"))
+                    {
+                        // Se o arquivo antigo já possui carimbo de data no nome, preserva o nome original
+                        targetFileName = $"{nameWithoutExt}{ext}";
+                    }
+                    else
+                    {
+                        string dateStr = fileModTime.ToString(@"dd.MM.yyyy - HH\hmm");
+                        targetFileName = $"{nameWithoutExt} {dateStr}{ext}";
+                    }
+
+                    string targetPath = Path.Combine(backupDir, targetFileName);
+
+                    // Se já existir no backup um arquivo com o mesmo nome e minuto exato, adiciona segundos ou contador
                     if (File.Exists(targetPath))
                     {
-                        string nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
-                        string ext = Path.GetExtension(fileName);
-                        string timestamp = GetBrasiliaNow().ToString("yyyyMMdd_HHmmss");
-                        targetPath = Path.Combine(backupDir, $"{nameWithoutExt}_{timestamp}{ext}");
+                        string baseTarget = Path.GetFileNameWithoutExtension(targetFileName);
+                        string secStr = fileModTime.ToString("ss");
+                        targetPath = Path.Combine(backupDir, $"{baseTarget}_{secStr}{ext}");
+
+                        int count = 1;
+                        while (File.Exists(targetPath))
+                        {
+                            targetPath = Path.Combine(backupDir, $"{baseTarget}_{count}{ext}");
+                            count++;
+                        }
                     }
 
                     File.Move(file, targetPath);
-                    Log($"Arquivo anterior movido para backup: {Path.GetFileName(file)} -> {backupFolderName}", LogLevel.Info);
+                    Log($"Arquivo anterior movido para backup: {fileNameOnly} -> {Path.GetFileName(targetPath)} em '{backupFolderName}'", LogLevel.Info);
                 }
             }
             catch (Exception ex)
@@ -731,6 +768,7 @@ namespace AtualizadorERP.Services
                         if (processPrefix.Equals("ERP", StringComparison.OrdinalIgnoreCase))
                         {
                             if (name.Equals("ERP", StringComparison.OrdinalIgnoreCase) ||
+                                name.Equals("ERPBeta", StringComparison.OrdinalIgnoreCase) ||
                                 name.StartsWith("ERP ", StringComparison.OrdinalIgnoreCase) ||
                                 name.StartsWith("ERP_", StringComparison.OrdinalIgnoreCase))
                             {
@@ -739,11 +777,12 @@ namespace AtualizadorERP.Services
                         }
                         else
                         {
-                            // Para outras aplicações (ex: WRpdv, ServerMatriz, etc)
+                            // Para outras aplicações (ex: WRpdv, ServerMatriz, ClienrRP, etc)
                             if (name.Equals(processPrefix, StringComparison.OrdinalIgnoreCase) ||
                                 name.StartsWith(processPrefix + " ", StringComparison.OrdinalIgnoreCase) ||
                                 name.StartsWith(processPrefix + "_", StringComparison.OrdinalIgnoreCase) ||
-                                name.StartsWith(processPrefix + ".", StringComparison.OrdinalIgnoreCase))
+                                name.StartsWith(processPrefix + ".", StringComparison.OrdinalIgnoreCase) ||
+                                (processPrefix.Equals("ClienrRP", StringComparison.OrdinalIgnoreCase) && name.Equals("ClientRP", StringComparison.OrdinalIgnoreCase)))
                             {
                                 return true;
                             }

@@ -115,7 +115,7 @@ namespace AtualizadorERP.Models
                     IconGlyph = "👤",
                     RemoteFolder = "install/frente/ClientRP",
                     BackupFolderName = "ClientRP bkp",
-                    StandardExePrefix = "ClientRP"
+                    StandardExePrefix = "ClienrRP"
                 },
                 // 8. EnvLog
                 new AppDefinition
@@ -164,23 +164,9 @@ namespace AtualizadorERP.Models
             };
         }
 
-        public string GenerateFinalExeName(string rarFileName)
+        public string GenerateFinalExeName(string rarFileName = "")
         {
-            // Extrai a versão numérica do arquivo (ex: 3.16.59 ou 1.94.70)
-            var match = Regex.Match(rarFileName, @"\d+(\.\d+)+");
-            if (match.Success)
-            {
-                return $"{StandardExePrefix} {match.Value}.exe";
-            }
-
-            // Fallback caso não encontre padrão de versão
-            string baseName = rarFileName.Replace(".rar", "", StringComparison.OrdinalIgnoreCase).Trim();
-            if (baseName.StartsWith("Z", StringComparison.OrdinalIgnoreCase))
-            {
-                baseName = baseName.Substring(1);
-            }
-            baseName = baseName.Replace('_', ' ');
-            return $"{baseName}.exe";
+            return $"{StandardExePrefix}.exe";
         }
     }
 }

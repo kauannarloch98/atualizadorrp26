@@ -631,8 +631,8 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
                                     <TextBlock Text="ERP Beta" FontSize="14" FontWeight="Bold" Foreground="#F8FAFC"/>
-                                    <TextBlock x:Name="TxtErpBetaD10Sub" Text="Versão de testes • Carimbo do servidor" FontSize="11" Foreground="#94A3B8" Margin="0,2,0,0"/>
-                                    <TextBlock x:Name="TxtErpBetaD10Exe" Text="Será instalado como: ERP Beta [data - hora].exe" FontSize="11.5" Foreground="#38BDF8" Margin="0,3,0,0"/>
+                                    <TextBlock x:Name="TxtErpBetaD10Sub" Text="Versão de testes Delphi 10" FontSize="11" Foreground="#94A3B8" Margin="0,2,0,0"/>
+                                    <TextBlock x:Name="TxtErpBetaD10Exe" Text="Será instalado como: ERPBeta.exe" FontSize="11.5" Foreground="#38BDF8" Margin="0,3,0,0"/>
                                     <TextBlock x:Name="TxtErpBetaD10Size" Text="Tamanho: --" FontSize="10.5" Foreground="#94A3B8" Margin="0,1,0,0"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -657,7 +657,7 @@
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
                                     <TextBlock Text="ERP Fix (Delphi 13)" FontSize="14" FontWeight="Bold" Foreground="#F8FAFC"/>
                                     <TextBlock x:Name="TxtErpFixD13Sub" Text="Estável Delphi 13 • DLL SecureBlackbox24" FontSize="11" Foreground="#94A3B8" Margin="0,2,0,0"/>
-                                    <TextBlock x:Name="TxtErpFixD13Exe" Text="Será instalado como: ERP Delphi 13.exe (+ SecureBlackbox24.dll)" FontSize="11.5" Foreground="#38BDF8" Margin="0,3,0,0"/>
+                                    <TextBlock x:Name="TxtErpFixD13Exe" Text="Será instalado como: ERP.exe (+ DLL)" FontSize="11.5" Foreground="#38BDF8" Margin="0,3,0,0"/>
                                     <TextBlock x:Name="TxtErpFixD13Size" Text="Tamanho: --" FontSize="10.5" Foreground="#94A3B8" Margin="0,1,0,0"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -684,8 +684,8 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
                                     <TextBlock Text="ERP Beta (Delphi 13)" FontSize="14" FontWeight="Bold" Foreground="#F8FAFC"/>
-                                    <TextBlock x:Name="TxtErpBetaD13Sub" Text="Testes Delphi 13 • Carimbo de data + DLL" FontSize="11" Foreground="#94A3B8" Margin="0,2,0,0"/>
-                                    <TextBlock x:Name="TxtErpBetaD13Exe" Text="Será instalado como: ERP Delphi 13 Beta [data - hora].exe (+ DLL)" FontSize="11.5" Foreground="#38BDF8" Margin="0,3,0,0"/>
+                                    <TextBlock x:Name="TxtErpBetaD13Sub" Text="Testes Delphi 13 • DLL SecureBlackbox24" FontSize="11" Foreground="#94A3B8" Margin="0,2,0,0"/>
+                                    <TextBlock x:Name="TxtErpBetaD13Exe" Text="Será instalado como: ERPBeta.exe (+ DLL)" FontSize="11.5" Foreground="#38BDF8" Margin="0,3,0,0"/>
                                     <TextBlock x:Name="TxtErpBetaD13Size" Text="Tamanho: --" FontSize="10.5" Foreground="#94A3B8" Margin="0,1,0,0"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">

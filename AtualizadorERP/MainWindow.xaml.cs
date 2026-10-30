@@ -172,7 +172,7 @@ namespace AtualizadorERP
             {
                 CmbGenericVersions.ItemsSource = null;
                 TxtGenericTargetVersion.Text = _currentApp.StatusSummary;
-                TxtGenericExeRename.Text = $"Será instalado como: {_currentApp.StandardExePrefix} [versão].exe";
+                TxtGenericExeRename.Text = $"Será instalado como: {_currentApp.StandardExePrefix}.exe";
                 TxtGenericFileSize.Text = "Tamanho: --";
                 TxtGenericFileDate.Text = "Modificado em: --";
             }
@@ -230,23 +230,22 @@ namespace AtualizadorERP
 
                         if (erpDetails.TryGetValue(2, out var info2))
                         {
-                            string ts2 = info2.Modified != default ? info2.Modified.ToString(@"dd.MM - HH\hmm") : "data";
                             TxtErpBetaD10Sub.Text = $"Testes Delphi 10 • FTP: {info2.Modified:dd/MM/yyyy HH:mm}";
-                            TxtErpBetaD10Exe.Text = $"Será instalado como: ERP Beta {ts2}.exe";
+                            TxtErpBetaD10Exe.Text = "Será instalado como: ERPBeta.exe";
                             TxtErpBetaD10Size.Text = $"Tamanho: {info2.FormattedSize}";
                         }
 
                         if (erpDetails.TryGetValue(3, out var info3))
                         {
                             TxtErpFixD13Sub.Text = $"Estável Delphi 13 • FTP: {info3.Modified:dd/MM/yyyy HH:mm}";
+                            TxtErpFixD13Exe.Text = "Será instalado como: ERP.exe (+ DLL)";
                             TxtErpFixD13Size.Text = $"Tamanho: {info3.FormattedSize}";
                         }
 
                         if (erpDetails.TryGetValue(4, out var info4))
                         {
-                            string ts4 = info4.Modified != default ? info4.Modified.ToString(@"dd.MM - HH\hmm") : "data";
                             TxtErpBetaD13Sub.Text = $"Testes Delphi 13 • FTP: {info4.Modified:dd/MM/yyyy HH:mm}";
-                            TxtErpBetaD13Exe.Text = $"Será instalado como: ERP Delphi 13 Beta {ts4}.exe (+ DLL)";
+                            TxtErpBetaD13Exe.Text = "Será instalado como: ERPBeta.exe (+ DLL)";
                             TxtErpBetaD13Size.Text = $"Tamanho: {info4.FormattedSize}";
                         }
 

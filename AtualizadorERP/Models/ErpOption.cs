@@ -31,7 +31,7 @@ namespace AtualizadorERP.Models
                     BaseName = "ERP",
                     IsBeta = false,
                     IsDelphi13 = false,
-                    Description = "Versão oficial estável compilada em Delphi 10. Destino: ERP.exe"
+                    Description = "Versão oficial estável Delphi 10. Destino: ERP.exe"
                 },
                 new ErpOption
                 {
@@ -40,10 +40,10 @@ namespace AtualizadorERP.Models
                     Category = "Delphi 10",
                     Badge = "Beta",
                     RemoteFile = "install/erp/ERP-Beta.rar",
-                    BaseName = "ERP Beta",
+                    BaseName = "ERPBeta",
                     IsBeta = true,
                     IsDelphi13 = false,
-                    Description = "Versão de testes Delphi 10 com carimbo de data/hora no nome."
+                    Description = "Versão de testes Delphi 10. Destino: ERPBeta.exe"
                 },
                 new ErpOption
                 {
@@ -52,10 +52,10 @@ namespace AtualizadorERP.Models
                     Category = "Delphi 13",
                     Badge = "Estável",
                     RemoteFile = "install/erp/delphi_13/erp_fix.rar",
-                    BaseName = "ERP Delphi 13",
+                    BaseName = "ERP",
                     IsBeta = false,
                     IsDelphi13 = true,
-                    Description = "Versão oficial estável Delphi 13 (inclui SecureBlackbox24.dll)."
+                    Description = "Versão oficial estável Delphi 13 (inclui SecureBlackbox24.dll). Destino: ERP.exe"
                 },
                 new ErpOption
                 {
@@ -64,10 +64,10 @@ namespace AtualizadorERP.Models
                     Category = "Delphi 13",
                     Badge = "Beta",
                     RemoteFile = "install/erp/delphi_13/erp_beta.rar",
-                    BaseName = "ERP Delphi 13 Beta",
+                    BaseName = "ERPBeta",
                     IsBeta = true,
                     IsDelphi13 = true,
-                    Description = "Versão de testes Delphi 13 com carimbo de data/hora e DLL."
+                    Description = "Versão de testes Delphi 13 com DLL. Destino: ERPBeta.exe"
                 }
             };
         }

@@ -82,7 +82,7 @@ set "TITULO=ERP Beta Delphi 10"
 set "REMOTE_FILE=install/erp/ERP-Beta.rar"
 set "IS_BETA=1"
 set "IS_DELPHI13=0"
-set "BASE_NAME=ERP Beta"
+set "BASE_NAME=ERPBeta"
 goto EXECUTAR
 
 :OPCAO3
@@ -90,7 +90,7 @@ set "TITULO=ERP Fix Delphi 13"
 set "REMOTE_FILE=install/erp/delphi_13/erp_fix.rar"
 set "IS_BETA=0"
 set "IS_DELPHI13=1"
-set "BASE_NAME=ERP Delphi 13"
+set "BASE_NAME=ERP"
 goto EXECUTAR
 
 :OPCAO4
@@ -98,7 +98,7 @@ set "TITULO=ERP Beta Delphi 13"
 set "REMOTE_FILE=install/erp/delphi_13/erp_beta.rar"
 set "IS_BETA=1"
 set "IS_DELPHI13=1"
-set "BASE_NAME=ERP Delphi 13 Beta -"
+set "BASE_NAME=ERPBeta"
 goto EXECUTAR
 
 :: ============================================================================
@@ -140,7 +140,7 @@ if not exist "%TEMP_RAR%" (
 
 :: Define o nome final do executavel
 if "%IS_BETA%"=="1" (
-    call :OBTER_TIMESTAMP_FTP
+    set "NOME_FINAL=%BASE_NAME%.exe"
 ) else (
     set "NOME_FINAL=%BASE_NAME%.exe"
 )
@@ -171,6 +171,7 @@ echo.
 echo [3/3] Instalando e renomeando executavel...
 echo Arquivo final: "%DEST_DIR%\%NOME_FINAL%"
 
+if exist "%DEST_DIR%\%NOME_FINAL%" call :FAZER_BACKUP
 move /y "%EXE_FILE%" "%DEST_DIR%\%NOME_FINAL%" >nul
 if %errorlevel% neq 0 (
     echo.
@@ -214,12 +215,14 @@ goto MENU
 :: ============================================================================
 :: SUB-ROTINA: CAPTURAR TIMESTAMP ORIGINAL DO ARQUIVO NO FTP
 :: ============================================================================
-:OBTER_TIMESTAMP_FTP
+:FAZER_BACKUP
 set "TIMESTAMP="
-for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "(Get-Item -LiteralPath '%TEMP_RAR%').LastWriteTime.ToString('dd.MM - HH\hmm')"`) do (
+for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "(Get-Item -LiteralPath '%DEST_DIR%\%NOME_FINAL%').LastWriteTime.ToString('dd.MM.yyyy - HH\hmm')"`) do (
     set "TIMESTAMP=%%D"
 )
-set "NOME_FINAL=%BASE_NAME% %TIMESTAMP%.exe"
+if "%IS_BETA%"=="1" (set "BKP_DIR=%DEST_DIR%\beta bkp") else (set "BKP_DIR=%DEST_DIR%\fix bkp")
+if not exist "%BKP_DIR%" mkdir "%BKP_DIR%" 2>nul
+move /y "%DEST_DIR%\%NOME_FINAL%" "%BKP_DIR%\%BASE_NAME% %TIMESTAMP%.exe" >nul
 exit /b
 
 :: ============================================================================
