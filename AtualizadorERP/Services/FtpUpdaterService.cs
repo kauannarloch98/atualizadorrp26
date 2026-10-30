@@ -665,6 +665,34 @@ namespace AtualizadorERP.Services
             return details.ToDictionary(k => k.Key, v => v.Value.Modified);
         }
 
+        private static string? GetInternalExeVersion(string filePath)
+        {
+            try
+            {
+                var vi = FileVersionInfo.GetVersionInfo(filePath);
+                string? ver = vi.FileVersion?.Trim();
+                if (string.IsNullOrWhiteSpace(ver) || ver == "0.0.0.0")
+                {
+                    ver = vi.ProductVersion?.Trim();
+                }
+
+                if (!string.IsNullOrWhiteSpace(ver) && ver != "0.0.0.0")
+                {
+                    ver = ver.Replace(',', '.').Replace(' ', '_').Trim();
+                    foreach (char c in Path.GetInvalidFileNameChars())
+                    {
+                        ver = ver.Replace(c, '_');
+                    }
+                    return ver;
+                }
+            }
+            catch
+            {
+                // Silencioso se não conseguir ler informações de versão
+            }
+            return null;
+        }
+
         // =====================================================================
         // ROTINA DE BACKUP: MOVE ARQUIVOS ANTIGOS PARA PASTA DE BKP
         // =====================================================================
@@ -702,34 +730,63 @@ namespace AtualizadorERP.Services
 
                     string nameWithoutExt = Path.GetFileNameWithoutExtension(file);
                     string ext = Path.GetExtension(file);
+                    bool isBetaFile = fileNameOnly.Contains("Beta", StringComparison.OrdinalIgnoreCase);
+                    string? internalVersion = GetInternalExeVersion(file);
+                    string dateStr = fileModTime.ToString(@"dd.MM.yyyy - HH\hmm");
 
-                    // Formato do backup: [NomeDoArquivo] [Data de Modificação].exe
-                    // Exemplo: ERP 29.10.2026 - 08h04.exe ou ERPBeta 29.10.2026 - 08h02.exe
-                    string targetFileName;
-                    if (Regex.IsMatch(nameWithoutExt, @"\d{2}\.\d{2}"))
+                    // Limpa sufixos caso o arquivo antigo já contenha a versão no próprio nome
+                    string cleanBase = nameWithoutExt;
+                    if (!string.IsNullOrWhiteSpace(internalVersion) && cleanBase.EndsWith(internalVersion, StringComparison.OrdinalIgnoreCase))
                     {
-                        // Se o arquivo antigo já possui carimbo de data no nome, preserva o nome original
-                        targetFileName = $"{nameWithoutExt}{ext}";
+                        cleanBase = cleanBase.Substring(0, cleanBase.Length - internalVersion.Length).TrimEnd(' ', '_', '-');
+                    }
+
+                    string targetFileName;
+                    if (isBetaFile)
+                    {
+                        // Para ERP Beta: ERP + versão + data de modificação
+                        // Exemplo: ERPBeta 24.1.0.5 29.10.2026 - 08h02.exe
+                        if (!string.IsNullOrWhiteSpace(internalVersion))
+                        {
+                            targetFileName = $"{cleanBase} {internalVersion} {dateStr}{ext}";
+                        }
+                        else
+                        {
+                            targetFileName = $"{cleanBase} {dateStr}{ext}";
+                        }
                     }
                     else
                     {
-                        string dateStr = fileModTime.ToString(@"dd.MM.yyyy - HH\hmm");
-                        targetFileName = $"{nameWithoutExt} {dateStr}{ext}";
+                        // Para ERP Fix e demais aplicações: Nome + Versão do arquivo
+                        // Exemplo: WRpdv 3.16.59.exe, ERP 24.1.0.12.exe
+                        if (!string.IsNullOrWhiteSpace(internalVersion))
+                        {
+                            targetFileName = $"{cleanBase} {internalVersion}{ext}";
+                        }
+                        else
+                        {
+                            // Fallback de segurança se não houver versão interna gravada no .exe
+                            targetFileName = $"{cleanBase} {dateStr}{ext}";
+                        }
                     }
 
                     string targetPath = Path.Combine(backupDir, targetFileName);
 
-                    // Se já existir no backup um arquivo com o mesmo nome e minuto exato, adiciona segundos ou contador
+                    // Se já existir no backup um arquivo com esse mesmo nome, adiciona data de modificação ou contador
                     if (File.Exists(targetPath))
                     {
                         string baseTarget = Path.GetFileNameWithoutExtension(targetFileName);
-                        string secStr = fileModTime.ToString("ss");
-                        targetPath = Path.Combine(backupDir, $"{baseTarget}_{secStr}{ext}");
+                        if (!baseTarget.Contains(dateStr))
+                        {
+                            targetFileName = $"{baseTarget} {dateStr}{ext}";
+                            targetPath = Path.Combine(backupDir, targetFileName);
+                        }
 
                         int count = 1;
                         while (File.Exists(targetPath))
                         {
-                            targetPath = Path.Combine(backupDir, $"{baseTarget}_{count}{ext}");
+                            string curBase = Path.GetFileNameWithoutExtension(targetFileName);
+                            targetPath = Path.Combine(backupDir, $"{curBase}_{count}{ext}");
                             count++;
                         }
                     }

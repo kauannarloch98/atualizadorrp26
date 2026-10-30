@@ -216,13 +216,21 @@ goto MENU
 :: SUB-ROTINA: CAPTURAR TIMESTAMP ORIGINAL DO ARQUIVO NO FTP
 :: ============================================================================
 :FAZER_BACKUP
-set "TIMESTAMP="
+set "OLD_MOD="
 for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "(Get-Item -LiteralPath '%DEST_DIR%\%NOME_FINAL%').LastWriteTime.ToString('dd.MM.yyyy - HH\hmm')"`) do (
-    set "TIMESTAMP=%%D"
+    set "OLD_MOD=%%D"
 )
 if "%IS_BETA%"=="1" (set "BKP_DIR=%DEST_DIR%\beta bkp") else (set "BKP_DIR=%DEST_DIR%\fix bkp")
 if not exist "%BKP_DIR%" mkdir "%BKP_DIR%" 2>nul
-move /y "%DEST_DIR%\%NOME_FINAL%" "%BKP_DIR%\%BASE_NAME% %TIMESTAMP%.exe" >nul
+for /f "usebackq delims=" %%V in (`powershell -NoProfile -Command "$v = (Get-Item -LiteralPath '%DEST_DIR%\%NOME_FINAL%').VersionInfo.FileVersion; if ($v -and $v.Trim() -ne '' -and $v -ne '0.0.0.0') { $v.Trim() } else { '' }"`) do (
+    set "OLD_VER=%%V"
+)
+if "%IS_BETA%"=="1" (
+    if defined OLD_VER (set "BKP_FILE=%BASE_NAME% %OLD_VER% %OLD_MOD%.exe") else (set "BKP_FILE=%BASE_NAME% %OLD_MOD%.exe")
+) else (
+    if defined OLD_VER (set "BKP_FILE=%BASE_NAME% %OLD_VER%.exe") else (set "BKP_FILE=%BASE_NAME% %OLD_MOD%.exe")
+)
+move /y "%DEST_DIR%\%NOME_FINAL%" "%BKP_DIR%\%BKP_FILE%" >nul
 exit /b
 
 :: ============================================================================

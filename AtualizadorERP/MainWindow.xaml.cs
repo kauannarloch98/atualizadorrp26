@@ -133,11 +133,11 @@ namespace AtualizadorERP
             // 3. Regra de backup
             if (_currentApp.IsErpSuite)
             {
-                TxtBackupRuleInfo.Text = "Regra de backup: Versões antigas são salvas em 'fix bkp' e 'beta bkp'";
+                TxtBackupRuleInfo.Text = "Regra de backup: Versões antigas são salvas em 'fix bkp' (versão) e 'beta bkp' (versão + data)";
             }
             else
             {
-                TxtBackupRuleInfo.Text = $"Regra de backup: Versões anteriores são movidas para '{_currentApp.BackupFolderName}'";
+                TxtBackupRuleInfo.Text = $"Regra de backup: Versões anteriores são movidas para '{_currentApp.BackupFolderName}' com a versão do arquivo";
             }
 
             // 4. Alterna painéis de versão (ERP vs Genérico)
