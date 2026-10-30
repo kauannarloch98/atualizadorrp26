@@ -422,7 +422,7 @@ namespace AtualizadorERP
                         var files = await Task.Run(() => updater.FetchAppRemoteFilesAsync(_currentApp, _settings, _cts.Token));
                         if (files.Count == 0)
                         {
-                            throw new FileNotFoundException($"Nenhum pacote .rar foi encontrado no FTP para {_currentApp.Name}.");
+                            throw new FileNotFoundException($"Nenhum pacote de instalação foi encontrado no FTP para {_currentApp.Name}.");
                         }
                         target = files[0];
                     }

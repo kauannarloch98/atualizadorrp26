@@ -179,16 +179,18 @@ namespace AtualizadorERP.Services
         /// </summary>
         public static FtpListItem? FindErpPackageInListing(IEnumerable<FtpListItem> items, bool isBeta)
         {
-            var rarFiles = items
-                .Where(i => i.Type == FtpObjectType.File && i.Name.EndsWith(".rar", StringComparison.OrdinalIgnoreCase))
+            var files = items
+                .Where(i => i.Type == FtpObjectType.File && 
+                           (i.Name.EndsWith(".rar", StringComparison.OrdinalIgnoreCase) || 
+                            i.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)))
                 .ToList();
 
-            if (rarFiles.Count == 0) return null;
+            if (files.Count == 0) return null;
 
             if (isBeta)
             {
                 // Se tiver ERP e BETA no mesmo nome = Beta
-                var betaWithErp = rarFiles
+                var betaWithErp = files
                     .Where(i => i.Name.Contains("erp", StringComparison.OrdinalIgnoreCase) &&
                                 i.Name.Contains("beta", StringComparison.OrdinalIgnoreCase))
                     .OrderByDescending(i => i.Modified)
@@ -196,16 +198,16 @@ namespace AtualizadorERP.Services
 
                 if (betaWithErp.Count > 0) return betaWithErp[0];
 
-                // Fallback: qualquer .rar que contenha 'beta'
-                return rarFiles
+                // Fallback: qualquer arquivo que contenha 'beta'
+                return files
                     .Where(i => i.Name.Contains("beta", StringComparison.OrdinalIgnoreCase))
                     .OrderByDescending(i => i.Modified)
                     .FirstOrDefault();
             }
             else
             {
-                // Onde tiver somente ERP (sem 'beta') = Fix (ex: erp.rar, ERP.rar, erp_fix.rar, ERP_Fix.rar)
-                var fixWithErp = rarFiles
+                // Onde tiver somente ERP (sem 'beta') = Fix (ex: erp.rar, ERP.exe, erp_fix.rar, ERP_Fix.rar)
+                var fixWithErp = files
                     .Where(i => i.Name.Contains("erp", StringComparison.OrdinalIgnoreCase) &&
                                 !i.Name.Contains("beta", StringComparison.OrdinalIgnoreCase))
                     .OrderByDescending(i => i.Modified)
@@ -213,8 +215,8 @@ namespace AtualizadorERP.Services
 
                 if (fixWithErp.Count > 0) return fixWithErp[0];
 
-                // Fallback: qualquer .rar que não contenha 'beta'
-                return rarFiles
+                // Fallback: qualquer arquivo que não contenha 'beta'
+                return files
                     .Where(i => !i.Name.Contains("beta", StringComparison.OrdinalIgnoreCase))
                     .OrderByDescending(i => i.Modified)
                     .FirstOrDefault();
@@ -225,8 +227,12 @@ namespace AtualizadorERP.Services
         {
             return items.FirstOrDefault(i =>
                 i.Type == FtpObjectType.File &&
-                (i.Name.Equals("SecureBlackbox24.dll", StringComparison.OrdinalIgnoreCase) ||
-                 (i.Name.Contains("secureblackbox", StringComparison.OrdinalIgnoreCase) && i.Name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))));
+                (i.Name.Contains("secureblackbox", StringComparison.OrdinalIgnoreCase) ||
+                 i.Name.Contains("blackbox", StringComparison.OrdinalIgnoreCase) ||
+                 i.Name.Equals("SecureBlackbox24.dll", StringComparison.OrdinalIgnoreCase) ||
+                 i.Name.Equals("SecureBlackbox24.rar", StringComparison.OrdinalIgnoreCase)) &&
+                (i.Name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ||
+                 i.Name.EndsWith(".rar", StringComparison.OrdinalIgnoreCase)));
         }
 
         // =====================================================================
@@ -323,6 +329,9 @@ namespace AtualizadorERP.Services
                 Log($"Baixando arquivo: {package.Name}...", LogLevel.Info);
                 ReportProgress(15, "Iniciando download...");
 
+                bool isRar = package.Name.EndsWith(".rar", StringComparison.OrdinalIgnoreCase);
+                string tempDownload = Path.Combine(tempDir, isRar ? "pacote.rar" : Path.GetFileName(package.Name));
+
                 var progressHandler = new Progress<FtpProgress>(p =>
                 {
                     double overallPercent = 15 + (p.Progress * 0.60);
@@ -334,37 +343,47 @@ namespace AtualizadorERP.Services
                     ReportProgress(overallPercent, $"Baixando: {p.Progress:0.0}% ({transferredStr})", speedStr, transferredStr, etaStr);
                 });
 
-                var status = await client.DownloadFile(tempRar, remoteFile, FtpLocalExists.Overwrite, FtpVerify.None, progressHandler, cancellationToken);
-                if (status != FtpStatus.Success && !File.Exists(tempRar))
+                var status = await client.DownloadFile(tempDownload, remoteFile, FtpLocalExists.Overwrite, FtpVerify.None, progressHandler, cancellationToken);
+                if (status != FtpStatus.Success && !File.Exists(tempDownload))
                 {
                     throw new Exception("Falha no download do pacote do servidor FTP.");
                 }
 
-                long fileSizeMb = new FileInfo(tempRar).Length / (1024 * 1024);
+                long fileSizeMb = new FileInfo(tempDownload).Length / (1024 * 1024);
                 Log($"Download concluído ({fileSizeMb} MB)!", LogLevel.Success);
 
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Extração
-                ReportProgress(78, "Extraindo pacote comprimido...");
-                Log("Extraindo arquivos do pacote RAR...", LogLevel.Info);
-
-                bool extracted = ExtractRarPackage(tempRar, tempExtract);
-                if (!extracted)
+                string sourceExe;
+                if (isRar)
                 {
-                    throw new Exception("Falha ao descompactar o arquivo RAR baixado.");
+                    // Extração
+                    ReportProgress(78, "Extraindo pacote comprimido...");
+                    Log("Extraindo arquivos do pacote RAR...", LogLevel.Info);
+
+                    bool extracted = ExtractRarPackage(tempDownload, tempExtract);
+                    if (!extracted)
+                    {
+                        throw new Exception("Falha ao descompactar o arquivo RAR baixado.");
+                    }
+
+                    var exeFiles = Directory.GetFiles(tempExtract, "*", SearchOption.AllDirectories)
+                        .Where(f => f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                        .ToArray();
+
+                    if (exeFiles.Length == 0)
+                    {
+                        throw new FileNotFoundException("Nenhum arquivo executável (.exe) foi encontrado dentro do pacote RAR.");
+                    }
+
+                    sourceExe = exeFiles[0];
+                }
+                else
+                {
+                    // Arquivo executável direto (.exe)
+                    sourceExe = tempDownload;
                 }
 
-                var exeFiles = Directory.GetFiles(tempExtract, "*", SearchOption.AllDirectories)
-                    .Where(f => f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                    .ToArray();
-
-                if (exeFiles.Length == 0)
-                {
-                    throw new FileNotFoundException("Nenhum arquivo executável (.exe) foi encontrado dentro do pacote RAR.");
-                }
-
-                string sourceExe = exeFiles[0];
                 string destExe = Path.Combine(destDir, finalExeName);
 
                 ReportProgress(86, "Criando backup das versões anteriores...");
@@ -394,7 +413,7 @@ namespace AtualizadorERP.Services
                 if (option.IsDelphi13)
                 {
                     ReportProgress(92, "Baixando DLL SecureBlackbox24...");
-                    Log("Baixando biblioteca complementar: SecureBlackbox24.dll...", LogLevel.Info);
+                    Log("Baixando biblioteca complementar: SecureBlackbox24...", LogLevel.Info);
 
                     string destDll = Path.Combine(destDir, option.DllLocalName);
                     var dllProgress = new Progress<FtpProgress>(p =>
@@ -404,12 +423,51 @@ namespace AtualizadorERP.Services
                     });
 
                     var dllItem = FindSecureBlackboxDll(folderItems);
-                    string remoteDll = dllItem != null ? dllItem.FullName : option.DllRemoteFile;
+                    string remoteDllPath = dllItem != null ? dllItem.FullName : option.DllRemoteFile;
+                    string remoteDllName = dllItem != null ? dllItem.Name : Path.GetFileName(remoteDllPath);
+                    bool isDllRar = remoteDllName.EndsWith(".rar", StringComparison.OrdinalIgnoreCase);
 
                     try
                     {
-                        await client.DownloadFile(destDll, remoteDll, FtpLocalExists.Overwrite, FtpVerify.None, dllProgress, cancellationToken);
-                        Log($"SecureBlackbox24.dll atualizada com sucesso em: {destDll}", LogLevel.Success);
+                        if (isDllRar)
+                        {
+                            string tempDllRar = Path.Combine(tempDir, "dll_package.rar");
+                            string tempDllExtract = Path.Combine(tempDir, "dll_extracted");
+                            Directory.CreateDirectory(tempDllExtract);
+
+                            await client.DownloadFile(tempDllRar, remoteDllPath, FtpLocalExists.Overwrite, FtpVerify.None, dllProgress, cancellationToken);
+                            if (ExtractRarPackage(tempDllRar, tempDllExtract))
+                            {
+                                var dllFiles = Directory.GetFiles(tempDllExtract, "*", SearchOption.AllDirectories)
+                                    .Where(f => f.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                                    .ToArray();
+
+                                if (dllFiles.Length > 0)
+                                {
+                                    string sourceDll = dllFiles.FirstOrDefault(f => Path.GetFileName(f).Equals(option.DllLocalName, StringComparison.OrdinalIgnoreCase)) ?? dllFiles[0];
+                                    if (File.Exists(destDll)) File.Delete(destDll);
+                                    File.Move(sourceDll, destDll);
+                                    Log($"SecureBlackbox24.dll extraída e atualizada com sucesso em: {destDll}", LogLevel.Success);
+                                }
+                                else
+                                {
+                                    Log($"Aviso: Nenhuma .dll encontrada dentro do pacote {remoteDllName}.", LogLevel.Warning);
+                                }
+                            }
+                            else
+                            {
+                                Log($"Aviso: Falha ao extrair o pacote {remoteDllName}.", LogLevel.Warning);
+                            }
+                        }
+                        else
+                        {
+                            // Arquivo direto (.dll)
+                            string tempDllFile = Path.Combine(tempDir, "temp_dll.dll");
+                            await client.DownloadFile(tempDllFile, remoteDllPath, FtpLocalExists.Overwrite, FtpVerify.None, dllProgress, cancellationToken);
+                            if (File.Exists(destDll)) File.Delete(destDll);
+                            File.Move(tempDllFile, destDll);
+                            Log($"SecureBlackbox24.dll atualizada com sucesso em: {destDll}", LogLevel.Success);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -481,28 +539,44 @@ namespace AtualizadorERP.Services
                     ReportProgress(overallPercent, $"Baixando: {p.Progress:0.0}% ({transferredStr})", speedStr, transferredStr, etaStr);
                 });
 
-                await client.DownloadFile(tempRar, targetFile.RemotePath, FtpLocalExists.Overwrite, FtpVerify.None, progressHandler, cancellationToken);
+                bool isRar = targetFile.FileName.EndsWith(".rar", StringComparison.OrdinalIgnoreCase);
+                string tempDownload = Path.Combine(tempDir, isRar ? "pacote.rar" : Path.GetFileName(targetFile.FileName));
+
+                await client.DownloadFile(tempDownload, targetFile.RemotePath, FtpLocalExists.Overwrite, FtpVerify.None, progressHandler, cancellationToken);
                 Log($"Download de {targetFile.FileName} concluído com sucesso!", LogLevel.Success);
 
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Extração
-                ReportProgress(82, "Extraindo pacote comprimido...");
-                Log("Extraindo arquivos do pacote...", LogLevel.Info);
-
-                bool extracted = ExtractRarPackage(tempRar, tempExtract);
-                if (!extracted)
+                string sourceExe;
+                if (isRar)
                 {
-                    throw new Exception("Falha ao descompactar o arquivo RAR baixado.");
+                    // Extração
+                    ReportProgress(82, "Extraindo pacote comprimido...");
+                    Log("Extraindo arquivos do pacote...", LogLevel.Info);
+
+                    bool extracted = ExtractRarPackage(tempDownload, tempExtract);
+                    if (!extracted)
+                    {
+                        throw new Exception("Falha ao descompactar o arquivo RAR baixado.");
+                    }
+
+                    var exeFiles = Directory.GetFiles(tempExtract, "*", SearchOption.AllDirectories)
+                        .Where(f => f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                        .ToArray();
+
+                    if (exeFiles.Length == 0)
+                    {
+                        throw new FileNotFoundException($"Nenhum arquivo .exe foi encontrado dentro do pacote {targetFile.FileName}.");
+                    }
+
+                    sourceExe = exeFiles[0];
+                }
+                else
+                {
+                    // Arquivo executável direto (.exe)
+                    sourceExe = tempDownload;
                 }
 
-                var exeFiles = Directory.GetFiles(tempExtract, "*.exe", SearchOption.AllDirectories);
-                if (exeFiles.Length == 0)
-                {
-                    throw new FileNotFoundException($"Nenhum arquivo .exe foi encontrado dentro do pacote {targetFile.FileName}.");
-                }
-
-                string sourceExe = exeFiles[0];
                 string destExe = Path.Combine(destDir, finalExeName);
 
                 // REGRA DE BACKUP: Mover versões antigas para a pasta '[Nome] bkp'
@@ -552,16 +626,34 @@ namespace AtualizadorERP.Services
                 var items = await GetDirectoryListingCaseInsensitiveAsync(client, app.RemoteFolder, cancellationToken);
                 foreach (var item in items)
                 {
-                    if (item.Type == FtpObjectType.File && item.Name.EndsWith(".rar", StringComparison.OrdinalIgnoreCase))
+                    if (item.Type == FtpObjectType.File && 
+                       (item.Name.EndsWith(".rar", StringComparison.OrdinalIgnoreCase) || 
+                        item.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)))
                     {
-                        if (!string.IsNullOrEmpty(app.FilePrefix))
+                        // 1. NÃO pode conter 'dll' em hipótese alguma (ex: 'DLLs.rar', 'DLLs ImpFlex X64.rar')
+                        if (item.Name.Contains("dll", StringComparison.OrdinalIgnoreCase))
                         {
-                            string cleanPrefix = app.FilePrefix.TrimEnd('_', '-');
-                            if (!item.Name.StartsWith(app.FilePrefix, StringComparison.OrdinalIgnoreCase) &&
-                                !item.Name.Contains(cleanPrefix, StringComparison.OrdinalIgnoreCase))
-                            {
-                                continue;
-                            }
+                            continue;
+                        }
+
+                        // 2. Deve ser igual ou conter o nome/prefixo do sistema
+                        bool matchesName = false;
+                        if (!string.IsNullOrEmpty(app.StandardExePrefix) && item.Name.Contains(app.StandardExePrefix, StringComparison.OrdinalIgnoreCase))
+                        {
+                            matchesName = true;
+                        }
+                        else if (!string.IsNullOrEmpty(app.FilePrefix) && item.Name.Contains(app.FilePrefix.TrimEnd('_', '-'), StringComparison.OrdinalIgnoreCase))
+                        {
+                            matchesName = true;
+                        }
+                        else if (!string.IsNullOrEmpty(app.Id) && item.Name.Contains(app.Id, StringComparison.OrdinalIgnoreCase))
+                        {
+                            matchesName = true;
+                        }
+
+                        if (!matchesName)
+                        {
+                            continue;
                         }
 
                         var match = Regex.Match(item.Name, @"\d+(\.\d+)+");

@@ -11,9 +11,9 @@
     <Title>Atualizador de Sistemas - RP Info</Title>
     <Product>Atualizador RP Info</Product>
     <Description>Atualizador e Gerenciador de Versões da Suite de Sistemas RP Info</Description>
-    <Version>1.2.6</Version>
-    <AssemblyVersion>1.2.6.0</AssemblyVersion>
-    <FileVersion>1.2.6.0</FileVersion>
+    <Version>1.2.7</Version>
+    <AssemblyVersion>1.2.7.0</AssemblyVersion>
+    <FileVersion>1.2.7.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
